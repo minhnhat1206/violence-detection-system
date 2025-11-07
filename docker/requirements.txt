@@ -1,0 +1,7 @@
+# docker/requirements.txt
+
+opencv-python-headless  # OpenCV không có giao diện (dùng trong Docker)
+minio                   # SDK để tương tác với MinIO (S3)
+kafka-python            # Thư viện để gửi message lên Kafka
+requests                # (Tùy chọn) Nếu cần gọi API bên ngoài
+numpy                   # Thường đi kèm với OpenCV
