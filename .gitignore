@@ -1,2 +1,5 @@
 /data/
 !/data/metadata/camera_registry.csv
+/tmp/
+/logs/
+/pids/
