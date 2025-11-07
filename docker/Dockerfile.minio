@@ -1,0 +1,10 @@
+FROM bitnamilegacy/minio:latest
+
+COPY ../config/minio/config.env /opt/bitnami/minio/config.env
+
+ENV MINIO_CONFIG_ENV_FILE=/opt/bitnami/minio/config.env
+
+EXPOSE 9000 9001
+
+ENTRYPOINT ["/opt/bitnami/scripts/minio/entrypoint.sh"]
+CMD ["/opt/bitnami/scripts/minio/run.sh"]

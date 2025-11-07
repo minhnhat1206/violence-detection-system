@@ -1,0 +1,4 @@
+file '/app/data/processed/clips_for_streaming/cam_14_01_88ndrvAZpE8_1.avi'
+file '/app/data/processed/clips_for_streaming/cam_14_02_YaWxiAtCwxE_7.avi'
+file '/app/data/processed/clips_for_streaming/cam_14_03_pinuwjwm_0.avi'
+file '/app/data/processed/clips_for_streaming/cam_14_04_yldWawWf_0.avi'

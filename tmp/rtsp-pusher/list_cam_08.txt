@@ -1,0 +1,2 @@
+file '/app/data/processed/clips_for_streaming/cam_08_01_cURNFrn5_0.avi'
+file '/app/data/processed/clips_for_streaming/cam_08_02_DHhyNrXr_2.avi'

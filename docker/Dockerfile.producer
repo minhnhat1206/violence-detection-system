@@ -1,0 +1,30 @@
+# docker/Dockerfile.producer
+
+FROM python:3.10-slim
+
+# Thiết lập biến môi trường
+ENV PYTHONUNBUFFERED 1
+
+
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Tạo thư mục làm việc trong container
+WORKDIR /app
+
+# Copy file dependencies
+COPY docker/requirements.txt /app/requirements.txt
+# Cài đặt Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy toàn bộ code Producer vào thư mục làm việc
+COPY ../scripts/rtsp_frame_publisher.py /app/rtsp_frame_publisher.py
+COPY ../scripts/prepare_cameras_dataset.py /app/prepare_cameras_dataset.py
+# Copy các file config cần thiết
+COPY ../config/kafka/producer.properties /app/producer.properties
+
+# Lệnh mặc định để chạy Producer
+CMD ["python", "rtsp_frame_publisher.py"]
