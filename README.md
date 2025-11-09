@@ -83,11 +83,8 @@ Kiểm tra xem Kafka Producer có lưu khung hình vào MinIO không:
 Kiểm tra xem Producer có đang gửi message lên Kafka không:
 
 ```bash
-docker exec kafka /opt/bitnami/kafka/bin/kafka-console-consumer.sh \
-    --bootstrap-server localhost:9092 \
-    --topic ingest.media.events \
-    --from-beginning \
-    --max-messages 5
+docker exec -it kafka kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic ingest.media.events --from-beginning
+
 ```
 
 Nếu lệnh này hiển thị các JSON message chứa metadata về frame (frame number, timestamp, MinIO path), điều đó có nghĩa là dữ liệu đã được **nạp vào MinIO và Kafka** thành công.
