@@ -6,11 +6,11 @@
     </property>
     <property>
         <name>fs.s3a.access.key</name>
-        <value>minioadmin</value>
+        <value>minio</value>
     </property>
     <property>
         <name>fs.s3a.secret.key</name>
-        <value>minioadmin</value>
+        <value>mypassword</value>
     </property>
     <property>
         <name>fs.s3a.path.style.access</name>
@@ -25,6 +25,19 @@
         <value>org.apache.hadoop.fs.s3a.S3AFileSystem</value>
     </property>
     
+    <property>
+        <name>fs.s3a.fast.upload</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>fs.s3a.fast.upload.buffer</name>
+        <value>disk</value> 
+    </property>
+    <property>
+        <name>fs.s3a.aws.credentials.provider</name>
+        <value>org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider</value>
+    </property>
+
     <property>
         <name>fs.defaultFS</name>
         <value>file:///</value>

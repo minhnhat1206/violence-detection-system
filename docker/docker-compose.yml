@@ -43,24 +43,32 @@ services:
 
   # --- MinIO ---
   minio:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.minio
+    image: bitnamilegacy/minio:latest
     container_name: minio
     ports:
-      - "9000:9000"
-      - "9001:9001"
-    env_file:
-      - ../config/minio/config.env
+      - "9000:9000" # Cổng API/Data
+      - "9001:9001" # Cổng Console UI
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      MINIO_REGION: ap-southeast-1
+      # CẬP NHẬT THÔNG TIN XÁC THỰC
+      - MINIO_ROOT_USER=minio
+      - MINIO_ROOT_PASSWORD=mypassword
     volumes:
-      - minio_data:/data
+      # SỬ DỤNG VOLUME ĐÃ ĐỊNH NGHĨA
+      - minio_data:/data 
     networks:
       - violence-detection-net
     restart: unless-stopped
+
+  # --- MinIO Client (Tự động tạo Bucket) ---
+  minio_client:
+    image: bitnamilegacy/minio-client:latest
+    container_name: minio_client
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "sleep 10 && mc alias set minio http://minio:9000 minio mypassword && mc mb minio/inference-results && mc mb minio/checkpoint && tail -F anything"
+    networks:
+      - violence-detection-net
 
   # --- RTSP Pusher ---
   rtsp_pusher:
