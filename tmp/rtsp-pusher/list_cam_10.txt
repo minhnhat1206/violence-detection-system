@@ -1,4 +1,3 @@
-file '/app/data/processed/clips_for_streaming/cam_10_01_cLsPLNQn_0.avi'
-file '/app/data/processed/clips_for_streaming/cam_10_02_gNUhUpxZ_0.avi'
-file '/app/data/processed/clips_for_streaming/cam_10_03_iqAmk7ES_0.avi'
-file '/app/data/processed/clips_for_streaming/cam_10_04_trhfd_1019.avi'
+file '/app/data/processed/clips_for_streaming/cam_10_01_arXD3QM2_0.avi'
+file '/app/data/processed/clips_for_streaming/cam_10_02_GodUly2k_0.avi'
+file '/app/data/processed/clips_for_streaming/cam_10_03_0H2s9UJcNJ0_3.avi'

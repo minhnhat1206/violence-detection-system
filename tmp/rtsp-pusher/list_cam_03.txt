@@ -1,4 +1,3 @@
-file '/app/data/processed/clips_for_streaming/cam_03_01_Assault010_x264_0.avi'
-file '/app/data/processed/clips_for_streaming/cam_03_02_SVdz24hD_0.avi'
-file '/app/data/processed/clips_for_streaming/cam_03_03_uu3SB2L1_0.avi'
-file '/app/data/processed/clips_for_streaming/cam_03_04_NxtwlqSnLbY_3.avi'
+file '/app/data/processed/clips_for_streaming/cam_03_01_WCbsjDUV_0.avi'
+file '/app/data/processed/clips_for_streaming/cam_03_02_0_DzLlklZa0_4.avi'
+file '/app/data/processed/clips_for_streaming/cam_03_03_0vasozvJYvk_1.avi'

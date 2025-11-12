@@ -1,3 +1,2 @@
-file '/app/data/processed/clips_for_streaming/cam_07_01_kMI2JME3Aag_2.avi'
-file '/app/data/processed/clips_for_streaming/cam_07_02_mRqg-WXiR7Q_0.avi'
-file '/app/data/processed/clips_for_streaming/cam_07_03_8SWZq5we_fk_1.avi'
+file '/app/data/processed/clips_for_streaming/cam_07_01_6Dej3-k3MRE_4.avi'
+file '/app/data/processed/clips_for_streaming/cam_07_02_8SWZq5we_fk_1.avi'
