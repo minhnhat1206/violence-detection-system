@@ -1,4 +1,3 @@
-
 import os
 import random
 import shutil
@@ -13,7 +12,7 @@ METADATA_PATH = BASE_DIR / "metadata"
 
 N_CAMERAS = 15
 MAX_CLIPS_PER_CAMERA = 4  # mỗi camera sẽ có 2..MAX_CLIPS_PER_CAMERA clip
-RTSP_BASE = "rtsp://localhost:8554"
+RTSP_BASE = "rtsp://mediamtx:8554" # Thay localhost thành mediamtx cho môi trường docker
 
 # Xác định vị trí chi tiết (Quận 1, TP. Hồ Chí Minh)
 CITY = "TP. Hồ Chí Minh"
@@ -32,6 +31,11 @@ STREETS = [
     "Đường Võ Văn Kiệt", "Đường Nguyễn Công Trứ", "Đường Công Trường Mê Linh",
     "Đường Hàm Nghi", "Đường Nguyễn Bỉnh Khiêm", "Đường Trương Định"
 ]
+
+# Thêm Kinh độ và Vĩ độ giả định (Quận 1, HCMC)
+# Phạm vi: Vĩ độ ~ 10.77 đến 10.78; Kinh độ ~ 106.69 đến 106.71
+LATITUDES = [round(random.uniform(10.770, 10.785), 5) for _ in range(N_CAMERAS)]
+LONGITUDES = [round(random.uniform(106.690, 106.710), 5) for _ in range(N_CAMERAS)]
 
 # ====== Tạo thư mục đầu ra nếu chưa tồn tại ======
 PROCESSED_PATH.mkdir(parents=True, exist_ok=True)
@@ -80,6 +84,9 @@ for i in range(N_CAMERAS):
     cam_id = f"cam_{i+1:02d}"
     ward = WARDS[i % len(WARDS)]
     street = STREETS[i % len(STREETS)]
+    lat = LATITUDES[i] # Lấy tọa độ tương ứng
+    lon = LONGITUDES[i]
+    
     # Tạo playlist
     playlist_paths = make_playlist(fight_videos, nonfight_videos, max_clips=MAX_CLIPS_PER_CAMERA)
     copied_names = []
@@ -109,6 +116,8 @@ for i in range(N_CAMERAS):
         "district": DISTRICT,
         "ward": ward,
         "street": street,
+        "latitude": lat,  # <--- Đã thêm
+        "longitude": lon, # <--- Đã thêm
         "playlist": "|".join(copied_names),
         "rtsp_url": f"{RTSP_BASE}/{cam_id}",
         "total_clips": len(copied_names),
@@ -117,7 +126,11 @@ for i in range(N_CAMERAS):
 
 # ====== Ghi CSV metadata ======
 csv_file = METADATA_PATH / "camera_registry.csv"
-fieldnames = ["camera_id", "city", "district", "ward", "street", "playlist", "rtsp_url", "total_clips", "has_violence"]
+# Cập nhật fieldnames
+fieldnames = [
+    "camera_id", "city", "district", "ward", "street", "latitude", "longitude", 
+    "playlist", "rtsp_url", "total_clips", "has_violence"
+]
 with open(csv_file, "w", newline="", encoding="utf-8") as f:
     writer = csv.DictWriter(f, fieldnames=fieldnames)
     writer.writeheader()

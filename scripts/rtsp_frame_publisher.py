@@ -4,45 +4,63 @@ import cv2
 import time
 import json
 import os
+import csv
+import threading
+import uuid
 from minio import Minio
 from kafka import KafkaProducer
 from datetime import datetime
 from io import BytesIO
-import threading # Giữ lại import này cho hàm main()
+from pathlib import Path
 
 # --- Cấu hình ---
-# Đảm bảo các biến môi trường được thiết lập trong Docker Compose
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio:9000")
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
 MINIO_BUCKET = "rtsp-frames"
-# ĐÃ SỬA: Thêm region cần thiết để MinIO SDK ký request đúng
 MINIO_REGION = "ap-southeast-1" 
 
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")
 KAFKA_TOPIC = "ingest.media.events"
 
 # Tần suất trích xuất frame (vd: 2 frame/giây)
-FRAME_RATE = 2 
+FRAME_RATE = 1
 
-# Địa chỉ RTSP (sẽ được thay thế bằng logic đọc từ camera_registry.csv)
-# Tạm thời dùng camera giả lập (chạy trên MediaMTX ở mediamtx:8554)
+METADATA_FILE = Path("data/metadata/camera_registry.csv")
+
+# --- Hàm đọc Metadata ---
+def load_camera_registry():
+    """Đọc file CSV camera_registry và trả về dictionary."""
+    registry = {}
+    try:
+        with open(METADATA_FILE, mode='r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                registry[row['camera_id']] = row
+        return registry
+    except FileNotFoundError:
+        print(f"LỖI: Không tìm thấy file metadata tại {METADATA_FILE.resolve()}")
+        return {}
+
+# --- Khởi tạo Clients & Metadata ---
+CAMERA_REGISTRY = load_camera_registry()
+if not CAMERA_REGISTRY:
+    exit(1)
+
+# Lấy danh sách RTSP streams từ registry
 RTSP_STREAMS = {
-    "cam_01": "rtsp://mediamtx:8554/cam_02", 
-    # Thêm các camera khác nếu cần
+    cam_id: data['rtsp_url'] 
+    for cam_id, data in CAMERA_REGISTRY.items()
 }
 
-# --- Khởi tạo Clients ---
 try:
     minio_client = Minio(
         MINIO_ENDPOINT,
         access_key=MINIO_ACCESS_KEY,
         secret_key=MINIO_SECRET_KEY,
-        secure=False, # Dùng HTTP nội bộ
-        # ĐÃ SỬA LỖI: Truyền tham số region vào constructor
+        secure=False, 
         region=MINIO_REGION 
     )
-    # Kiểm tra và tạo bucket nếu chưa có
     if not minio_client.bucket_exists(MINIO_BUCKET):
         minio_client.make_bucket(MINIO_BUCKET)
         print(f"Bucket {MINIO_BUCKET} created successfully.")
@@ -59,7 +77,12 @@ except Exception as e:
 
 def process_stream(camera_id, rtsp_url):
     """Xử lý từng luồng RTSP."""
-    print(f"Đang bắt đầu xử lý luồng: {camera_id} từ {rtsp_url}")
+    cam_metadata = CAMERA_REGISTRY.get(camera_id, {})
+    if not cam_metadata:
+        print(f"[LỖI] Không tìm thấy metadata cho {camera_id}. Bỏ qua.")
+        return
+
+    print(f"Đang bắt đầu xử lý luồng: {camera_id} ({cam_metadata.get('street')})")
     
     cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
     if not cap.isOpened():
@@ -67,31 +90,35 @@ def process_stream(camera_id, rtsp_url):
         return
 
     frame_interval = 1.0 / FRAME_RATE
+    frame_seq = 0 # Thêm bộ đếm frame sequence
 
     while True:
         start_time = time.time()
         
-        # Đọc frame
         ret, frame = cap.read()
         
         if not ret:
-            print(f"[CẢNH BÁO] Không đọc được frame từ {camera_id}. Thử kết nối lại sau 5s...")
+            # Logic kết nối lại
             cap.release()
             time.sleep(5)
             cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
             if not cap.isOpened():
-                break # Dừng nếu không thể kết nối lại
+                break 
             continue
-
+        
+        frame_seq += 1 #
+        
         # Nén frame sang JPEG
         _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
         frame_bytes = BytesIO(buffer)
-        
+        frame_width, frame_height = frame.shape[1], frame.shape[0]
+
         # Tạo metadata
         now = datetime.utcnow()
-        timestamp_str = now.isoformat() + "Z"
+        timestamp_str = now.isoformat(timespec='milliseconds') + "Z" # Định dạng chuẩn ISO 8601
+        
         # Định dạng path lưu MinIO: rtsp-frames/cam_01/YYYY/MM/DD/HHMMSS_ms.jpg
-        minio_object_name = f"{camera_id}/{now.strftime('%Y/%m/%d')}/{now.strftime('%H%M%S')}_{now.microsecond//1000}.jpg"
+        minio_object_name = f"{MINIO_BUCKET}/{camera_id}/{now.strftime('%Y/%m/%d')}/{now.strftime('%H%M%S')}{now.microsecond//1000}.jpg"
 
         try:
             # 1. Upload frame lên MinIO
@@ -103,21 +130,30 @@ def process_stream(camera_id, rtsp_url):
                 content_type='image/jpeg'
             )
 
-            # 2. Tạo và Publish metadata lên Kafka
+            # 2. Tạo và Publish metadata lên Kafka (CHUẨN HÓA SCHEMA)
             message = {
+                "event_id": str(uuid.uuid4()), 
                 "camera_id": camera_id,
-                "timestamp": timestamp_str,
-                "frame_path": minio_object_name,
-                "minio_endpoint": MINIO_ENDPOINT.split(':')[0], # Chỉ lấy hostname cho Worker
-                "minio_bucket": MINIO_BUCKET
+                "timestamp_utc": timestamp_str,
+                "frame_s3_path": minio_object_name.replace(f"{MINIO_BUCKET}/", ""), 
+                "frame_width": frame_width,
+                "frame_height": frame_height,
+                "frame_seq": frame_seq,
+                "source_rtsp": rtsp_url,
+                "metadata": {
+                    "city": cam_metadata.get("city"),
+                    "district": cam_metadata.get("district"),
+                    "ward": cam_metadata.get("ward"),
+                    "street": cam_metadata.get("street"),
+                    "latitude": float(cam_metadata.get("latitude", 0)),  
+                    "longitude": float(cam_metadata.get("longitude", 0)) 
+                }
             }
             
-            kafka_producer.send(KAFKA_TOPIC, value=message)
-            # print(f"[{camera_id}] Uploaded & Published: {minio_object_name}")
+            kafka_producer.send(KAFKA_TOPIC, value=message, key=camera_id.encode('utf-8'))
 
         except Exception as e:
-            # In ra lỗi chi tiết nếu quá trình xử lý (upload/publish) thất bại
-            print(f"[LỖI XỬ LÝ {camera_id}]: {e}")
+            print(f"[LỖI XỬ LÝ {camera_id} - Frame {frame_seq}]: {e}")
             
         # Điều chỉnh thời gian chờ để duy trì FRAME_RATE
         elapsed_time = time.time() - start_time
@@ -130,19 +166,19 @@ def process_stream(camera_id, rtsp_url):
 
 def main():
     """Khởi chạy tất cả các luồng RTSP."""
-    import threading
+    if not RTSP_STREAMS:
+        print("Không có luồng RTSP nào được định nghĩa. Vui lòng chạy generate_metadata.py trước.")
+        return
     
     threads = []
     for cam_id, rtsp_url in RTSP_STREAMS.items():
-        # Khởi chạy mỗi luồng trong một Thread riêng biệt
-        t = threading.Thread(target=process_stream, args=(cam_id, rtsp_url))
+        t = threading.Thread(target=process_stream, args=(cam_id, rtsp_url), daemon=True)
         threads.append(t)
         t.start()
-        time.sleep(0.5) # Dãn cách khởi động
+        time.sleep(0.1) # Dãn cách khởi động
 
     for t in threads:
-        t.join() # Chờ tất cả các thread kết thúc
+        t.join() 
 
 if __name__ == "__main__":
     main()
-

@@ -1,5 +1,4 @@
 version: "3.9"
-
 networks:
   violence-detection-net:
     driver: bridge
@@ -12,14 +11,14 @@ services:
     ports:
       - "2181:2181"
     environment:
-    - ALLOW_ANONYMOUS_LOGIN=yes
+      - ALLOW_ANONYMOUS_LOGIN=yes
     volumes:
       - zookeeper_data:/bitnami/zookeeper
     networks:
       - violence-detection-net
     restart: unless-stopped
 
-# --- Kafka ---
+  # --- Kafka ---
   kafka:
     build:
       context: ..
@@ -29,7 +28,7 @@ services:
       - "9092:9092"
     environment:
       KAFKA_CFG_BROKER_ID: 1
-      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092 
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
       KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -63,10 +62,10 @@ services:
       - violence-detection-net
     restart: unless-stopped
 
-# ...
+  # --- RTSP Pusher ---
   rtsp_pusher:
     build:
-      context: .. 
+      context: ..
       dockerfile: docker/Dockerfile.rtsp-pusher
     container_name: rtsp_pusher
     environment:
@@ -83,26 +82,30 @@ services:
       - violence-detection-net
     restart: on-failure
 
+  # --- Mediamtx (RTSP Server) ---
   mediamtx:
     image: bluenviron/mediamtx:latest
     container_name: mediamtx
     ports:
-      - "8554:8554" # RTSP
-      - "8888:8888" # HTTP/HLS
-      - "8188:8188" # Web UI 
+      - "8554:8554"
+      - "8888:8888"
+      - "8889:8889"
+      - "8189:8189/udp"
     environment:
       RTSP_AUTH_USER: ""
       RTSP_AUTH_PASS: ""
     networks:
       - violence-detection-net
     restart: unless-stopped
+    volumes:
+      - ../config/mediamtx/mediamtx.yml:/mediamtx.yml
 
+  # --- Producer ---
   producer:
     build:
       context: ..
       dockerfile: docker/Dockerfile.producer
     container_name: producer
-    # Producer chạy ngay sau khi MinIO và Kafka sẵn sàng
     depends_on:
       - kafka
       - minio
@@ -116,7 +119,72 @@ services:
     volumes:
       # Mount code để dễ debug/cập nhật
       - ../scripts:/app/scripts
+      - ../data:/app/data
     restart: on-failure
+
+  # --- Inference Worker ---
+  inference_worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.producer
+    container_name: inference_worker
+    restart: always
+    command: python /app/scripts/inference_worker.py
+    environment:
+      PYTHONUNBUFFERED: 1
+      MINIO_ENDPOINT: minio:9000
+      KAFKA_BROKER: kafka:9092
+    depends_on:
+      - kafka
+      - producer # Đảm bảo producer đã gửi dữ liệu
+    networks:
+      - violence-detection-net
+    volumes:
+      - ../scripts:/app/scripts
+      - ../data:/app/data
+
+  spark-master:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.spark
+    container_name: spark-master
+    environment:
+      SPARK_MODE: master
+      SPARK_RPC_AUTHENTICATION: no
+      SPARK_RPC_ENCRYPTION: no
+      SPARK_LOCAL_CONF_DIR: /opt/bitnami/spark/conf/
+      HOME: /tmp 
+      SPARK_HOME: /opt/bitnami/spark
+      SPARK_USER: sparkuser
+    ports:
+      - "8080:8080" # Spark Web UI
+    networks:
+      - violence-detection-net
+    volumes:
+      # Mount script PySpark
+      - ../scripts:/opt/bitnami/spark/scripts
+      # Cần cấu hình Hadoop/AWS S3 Client để kết nối MinIO
+      - ../config/spark:/opt/bitnami/spark/conf/
+    restart: always
+
+  spark-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.spark
+    container_name: spark-worker
+    environment:
+      SPARK_MODE: worker
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_WORKER_CORES: 1
+      SPARK_WORKER_MEMORY: 1g
+    networks:
+      - violence-detection-net
+    volumes:
+      - ../scripts:/opt/bitnami/spark/scripts
+      - ../config/spark:/opt/bitnami/spark/conf/
+    depends_on:
+      - spark-master
+    restart: always
 volumes:
   zookeeper_data:
   kafka_data:

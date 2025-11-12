@@ -1,0 +1,28 @@
+logLevel: info
+
+# RTSP server (publisher sẽ push tới đây)
+rtsp: yes
+rtspAddress: :8554
+
+rtmp: no
+
+# HLS global (dùng để serve .m3u8)
+hls: yes
+hlsAddress: :8888
+hlsAlwaysRemux: yes
+hlsSegmentDuration: 1s
+hlsSegmentCount: 10
+
+# Cấu hình WebRTC (WHEP/WHIP)
+webrtc: yes
+webrtcAddress: :8889
+
+# --- DÒNG ĐÃ SỬA LỖI ---
+# Giá trị giờ là một chuỗi (string), không phải mảng (array)
+webrtcAllowOrigin: 'http://localhost:3000'
+# -----------------------
+
+paths:
+  all:
+    source: publisher
+    maxReaders: 50
