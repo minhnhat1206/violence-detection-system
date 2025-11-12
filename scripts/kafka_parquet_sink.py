@@ -1,27 +1,28 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, from_json, date_format
+from pyspark.sql.functions import col, from_json, date_format, to_timestamp
 from pyspark.sql.types import (
-    StructType, StructField, StringType, DoubleType, 
+    StructType, StructField, StringType, DoubleType,
     IntegerType, TimestampType, ArrayType
 )
 
 # --- CẤU HÌNH ---
 KAFKA_BROKER = "kafka:9092"
 KAFKA_TOPIC = "model.inference.results"
-MINIO_SINK_PATH = "s3a://inference-results/"
-CHECKPOINT_PATH = "s3a://inference-results/checkpoint/"  # đặt trong cùng bucket
+MINIO_SINK_PATH = "s3a://inference-results/data/"
+CHECKPOINT_PATH = "s3a://inference-results/checkpoint/"
+
 
 # --- SCHEMA CỦA MODEL.INFERENCE.RESULTS ---
 METADATA_SCHEMA = StructType([
     StructField("notes", StringType(), True)
 ])
 
-BBOX_SCHEMA = ArrayType(ArrayType(DoubleType())) 
+BBOX_SCHEMA = ArrayType(ArrayType(DoubleType()))
 
 SCHEMA = StructType([
     StructField("event_id", StringType(), False),
     StructField("camera_id", StringType(), False),
-    StructField("timestamp_utc", TimestampType(), False),
+    StructField("timestamp_utc", StringType(), False),  # sẽ chuyển đổi sau
     StructField("frame_s3_path", StringType(), True),
     StructField("label", StringType(), True),
     StructField("score", DoubleType(), True),
@@ -33,20 +34,18 @@ SCHEMA = StructType([
 ])
 
 # --- KHỞI TẠO SPARK SESSION ---
-spark = SparkSession \
-    .builder \
+spark = SparkSession.builder \
     .appName("KafkaParquetSink") \
     .config(
-        "spark.jars.packages", 
+        "spark.jars.packages",
         "org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.2,org.apache.hadoop:hadoop-aws:3.3.4"
     ) \
     .getOrCreate()
-    
+
 spark.sparkContext.setLogLevel("WARN")
 
 # --- ĐỌC STREAM TỪ KAFKA ---
-df_stream = spark \
-    .readStream \
+df_stream = spark.readStream \
     .format("kafka") \
     .option("kafka.bootstrap.servers", KAFKA_BROKER) \
     .option("subscribe", KAFKA_TOPIC) \
@@ -58,13 +57,33 @@ df_processed = df_stream \
     .selectExpr("CAST(value AS STRING) as json_payload", "CAST(key AS STRING) as camera_key") \
     .select(from_json(col("json_payload"), SCHEMA).alias("data"), col("camera_key")) \
     .select("data.*") \
-    .withColumn("date", date_format(col("timestamp_utc"), "yyyy-MM-dd"))
+    .withColumn(
+        "processed_timestamp",
+        to_timestamp(col("timestamp_utc"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+    ) \
+    .withColumn(
+        "date",
+        date_format(col("processed_timestamp"), "yyyy-MM-dd")
+    ) \
+    .select(
+        col("event_id"),
+        col("camera_id"),
+        col("processed_timestamp").alias("timestamp_utc"),
+        col("frame_s3_path"),
+        col("label"),
+        col("score"),
+        col("bbox"),
+        col("model_name"),
+        col("model_version"),
+        col("latency_ms"),
+        col("extra"),
+        col("date")
+    )
 
 # --- GHI STREAM VÀO MINIO (S3A) ---
 print(f"Bắt đầu ghi dữ liệu từ Kafka topic '{KAFKA_TOPIC}' vào MinIO path: {MINIO_SINK_PATH}")
 
-query = df_processed \
-    .writeStream \
+query = df_processed.writeStream \
     .outputMode("append") \
     .format("parquet") \
     .option("path", MINIO_SINK_PATH) \

@@ -1,29 +1,50 @@
 # docker/Dockerfile.spark
-
 FROM bitnamilegacy/spark:3.4.2
 
 USER root
 
-# Cài thư viện S3A
-RUN install_packages wget unzip && \
-    mkdir -p /opt/hadoop-libs && \
-    wget https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.1/hadoop-aws-3.3.1.jar -P /opt/hadoop-libs/ && \
-    wget https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.901/aws-java-sdk-bundle-1.11.901.jar -P /opt/hadoop-libs/
+# Cài đặt công cụ cần thiết
+RUN install_packages wget unzip python3-pip
 
-# Cài thư viện Kafka connector
-RUN mkdir -p /opt/spark-jars && \
-    wget https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-10_2.12/3.4.2/spark-sql-kafka-0-10_2.12-3.4.2.jar -P /opt/spark-jars/ && \
-    wget https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.5.1/kafka-clients-3.5.1.jar -P /opt/spark-jars/
+# Thư mục tạm chứa JARs
+RUN mkdir -p /opt/spark-jars
+
+# Xóa các jar có thể gây conflict trong image base (nếu có)
+RUN rm -f /opt/bitnami/spark/jars/spark-sql-kafka-* || true
+RUN rm -f /opt/bitnami/spark/jars/kafka-clients-* || true
+RUN rm -f /opt/bitnami/spark/jars/spark-streaming-kafka-* || true
+RUN rm -f /opt/bitnami/spark/jars/spark-token-provider-kafka-* || true
+RUN rm -f /opt/bitnami/spark/jars/commons-pool2-* || true
+
+# Download các JAR cần thiết (phiên bản tương thích với Spark 3.4.2 + Scala 2.12)
+RUN wget -q -P /opt/spark-jars \
+    https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-10_2.12/3.4.2/spark-sql-kafka-0-10_2.12-3.4.2.jar && \
+    wget -q -P /opt/spark-jars \
+    https://repo1.maven.org/maven2/org/apache/spark/spark-streaming-kafka-0-10-assembly_2.12/3.4.2/spark-streaming-kafka-0-10-assembly_2.12-3.4.2.jar && \
+    wget -q -P /opt/spark-jars \
+    https://repo1.maven.org/maven2/org/apache/spark/spark-token-provider-kafka-0-10_2.12/3.4.2/spark-token-provider-kafka-0-10_2.12-3.4.2.jar && \
+    wget -q -P /opt/spark-jars \
+    https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.5.1/kafka-clients-3.5.1.jar && \
+    wget -q -P /opt/spark-jars \
+    https://repo1.maven.org/maven2/org/apache/commons/commons-pool2/2.11.1/commons-pool2-2.11.1.jar
+
+# Copy tất cả jar vào spark/jars
+RUN cp -v /opt/spark-jars/*.jar /opt/bitnami/spark/jars/ && \
+    rm -rf /opt/spark-jars
 
 # Thêm user spark
 ARG spark_uid=1000
-RUN echo "${spark_uid}:x:${spark_uid}:0:sparkuser:/opt/spark:/bin/bash" >> /etc/passwd
+RUN grep -q "^${spark_uid}:" /etc/passwd || echo "${spark_uid}:x:${spark_uid}:0:sparkuser:/opt/spark:/bin/bash" >> /etc/passwd
 
 # Chỉnh quyền
-RUN chown -R ${spark_uid}:${spark_uid} /opt/hadoop-libs /opt/spark-jars
+RUN chown -R ${spark_uid}:0 /opt/bitnami/spark/jars /opt/bitnami/spark || true
+RUN chmod -R g+rwX /opt/bitnami/spark/jars || true
 
-# Classpath
-ENV SPARK_EXTRA_CLASSPATH="/opt/hadoop-libs/*:/opt/spark-jars/*"
+# thêm mc (MinIO client)
+RUN wget -q -O /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc && \
+    chmod +x /tmp/mc && mv /tmp/mc /usr/local/bin/mc || true
+
+ENV SPARK_EXTRA_CLASSPATH="/opt/bitnami/spark/jars/*"
 
 USER ${spark_uid}
 ENV SPARK_HOME=/opt/bitnami/spark
