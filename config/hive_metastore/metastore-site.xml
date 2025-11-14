@@ -1,0 +1,75 @@
+<?xml version="1.0"?>
+<configuration>
+
+  <!-- Hive warehouse trên MinIO (S3A) -->
+  <property>
+    <name>hive.metastore.warehouse.dir</name>
+    <value>s3a://inference-results/iceberg_warehouse/</value>
+  </property>
+
+  <!-- Metastore Thrift URI -->
+  <property>
+    <name>metastore.thrift.uris</name>
+    <value>thrift://hive-metastore:9083</value>
+  </property>
+
+  <!-- MySQL datasource cho Metastore -->
+  <property>
+    <name>javax.jdo.option.ConnectionDriverName</name>
+    <value>com.mysql.cj.jdbc.Driver</value>
+  </property>
+
+  <property>
+    <name>javax.jdo.option.ConnectionURL</name>
+    <value>jdbc:mysql://mysql:3306/metastore?createDatabaseIfNotExist=true&amp;allowPublicKeyRetrieval=true&amp;useSSL=false&amp;serverTimezone=UTC</value>
+  </property>
+
+
+  <property>
+    <name>javax.jdo.option.ConnectionUserName</name>
+    <value>root</value>
+  </property>
+
+  <property>
+    <name>javax.jdo.option.ConnectionPassword</name>
+    <value>root</value>
+  </property>
+
+  <!-- S3A (MinIO) settings -->
+  <property>
+    <name>fs.s3a.impl</name>
+    <value>org.apache.hadoop.fs.s3a.S3AFileSystem</value>
+  </property>
+
+  <property>
+    <name>fs.s3a.access.key</name>
+    <value>minio</value>
+  </property>
+
+  <property>
+    <name>fs.s3a.secret.key</name>
+    <value>mypassword</value>
+  </property>
+
+  <property>
+    <name>fs.s3a.endpoint</name>
+    <value>http://minio:9000</value>
+  </property>
+
+  <property>
+    <name>fs.s3a.path.style.access</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>fs.s3a.aws.credentials.provider</name>
+    <value>org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider</value>
+  </property>
+
+  <!-- Optional tuning -->
+  <property>
+    <name>fs.s3a.connection.maximum</name>
+    <value>50</value>
+  </property>
+
+</configuration>
