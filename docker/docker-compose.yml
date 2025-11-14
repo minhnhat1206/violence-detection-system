@@ -1,4 +1,3 @@
-version: "3.9"
 networks:
   violence-detection-net:
     driver: bridge
@@ -49,11 +48,9 @@ services:
       - "9000:9000" # Cổng API/Data
       - "9001:9001" # Cổng Console UI
     environment:
-      # CẬP NHẬT THÔNG TIN XÁC THỰC
       - MINIO_ROOT_USER=minio
       - MINIO_ROOT_PASSWORD=mypassword
     volumes:
-      # SỬ DỤNG VOLUME ĐÃ ĐỊNH NGHĨA
       - minio_data:/data 
     networks:
       - violence-detection-net
@@ -193,7 +190,36 @@ services:
     depends_on:
       - spark-master
     restart: always
+# ---- Hive metastore -----
+  mysql:
+    image: mysql:8.4.5
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: metastore
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - violence-detection-net
+
+  hive-metastore:
+    container_name: hive-metastore
+    hostname: hive-metastore
+    image: 'bitsondatadev/hive-metastore:latest'
+    ports:
+      - '9083:9083'
+    volumes:
+      - ../config/hive_metastore/metastore-site.xml:/opt/apache-hive-metastore-3.0.0-bin/conf/metastore-site.xml:ro
+    environment:
+      METASTORE_DB_HOSTNAME: mysql
+    depends_on:
+      - mysql
+    networks:
+      - violence-detection-net
 volumes:
   zookeeper_data:
   kafka_data:
   minio_data:
+  mysql-data:
