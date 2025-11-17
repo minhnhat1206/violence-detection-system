@@ -44,6 +44,10 @@ RUN chmod -R g+rwX /opt/bitnami/spark/jars || true
 RUN wget -q -O /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc && \
     chmod +x /tmp/mc && mv /tmp/mc /usr/local/bin/mc || true
 
+RUN mkdir -p /opt/bitnami/spark/events && \
+    chown -R ${spark_uid}:0 /opt/bitnami/spark/events && \
+    chmod -R g+rwX /opt/bitnami/spark/events
+    
 ENV SPARK_EXTRA_CLASSPATH="/opt/bitnami/spark/jars/*"
 
 USER ${spark_uid}
