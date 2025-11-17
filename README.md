@@ -24,7 +24,7 @@ realtime-violence-detection/
 sau đó chạy script `prepare_cameras_dataset.py` để chia các clip được dùng để mô phỏng streaming cũng như metadata của từng cam
 
 Sau khi chạy xong thì folder data sẽ có cấu trúc như sau:
-
+```
 realtime-violence-detection/
 ├── data/
 │   ├── metadata/
@@ -33,7 +33,7 @@ realtime-violence-detection/
 │   │  └── clips_for_streaming/ <-- CHỨA CÁC FILE VIDEO (.avi, .mp4)
 │   ├── raw/
 │   │   └── RWF-2000
------
+```
 
 ### 2\.  Thiết lập Cổng (Ports) và Truy cập Dịch vụ
 
