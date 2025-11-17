@@ -79,7 +79,7 @@ Thực thi lệnh sau đây để chạy ứng dụng `kafka_parquet_sink.py` tr
 ```bash
 spark-submit \
     --master spark://spark-master:7077 \
-    /opt/bitnami/spark/scripts/kafka_parquet_sink.py"
+    /opt/bitnami/spark/scripts/kafka_parquet_sink.py
 ```
 
 
@@ -103,6 +103,16 @@ Sau khi Job chạy và xử lý dữ liệu (khoảng 1-2 phút), bạn có th�
 -----
 
 ### 6\.  Giám sát và Kiểm tra Luồng Dữ liệu
+
+#### 6.0 Kiểm tra dữ liệu các metric của prometheus
+
+```
+curl.exe "http://localhost:9090/api/v1/query?query=spark_driver_streaming_processed_records_total"
+
+curl.exe "http://localhost:9090/api/v1/query?query=spark_driver_streaming_end_to_end_latency_seconds"
+
+```
+
 
 #### 6.1. Giám sát Hiệu suất (Grafana)
 
