@@ -5,16 +5,11 @@ USER root
 
 # Cài đặt công cụ cần thiết
 RUN install_packages wget unzip python3-pip
+RUN pip install prometheus_client
 
 # Thư mục tạm chứa JARs
 RUN mkdir -p /opt/spark-jars
 
-# Xóa các jar có thể gây conflict trong image base (nếu có)
-RUN rm -f /opt/bitnami/spark/jars/spark-sql-kafka-* || true
-RUN rm -f /opt/bitnami/spark/jars/kafka-clients-* || true
-RUN rm -f /opt/bitnami/spark/jars/spark-streaming-kafka-* || true
-RUN rm -f /opt/bitnami/spark/jars/spark-token-provider-kafka-* || true
-RUN rm -f /opt/bitnami/spark/jars/commons-pool2-* || true
 
 # Download các JAR cần thiết (phiên bản tương thích với Spark 3.4.2 + Scala 2.12)
 RUN wget -q -P /opt/spark-jars \

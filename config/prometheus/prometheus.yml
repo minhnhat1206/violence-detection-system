@@ -1,32 +1,27 @@
 global:
-  scrape_interval: 15s # Thu thập metrics mỗi 15 giây
+  scrape_interval: 15s
+  evaluation_interval: 15s
 
 scrape_configs:
-  # 1. Giám sát Prometheus Server
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
 
-  # 2. Giám sát Hệ thống (Containers)
   - job_name: 'node-exporter'
     static_configs:
-      # Node exporter chạy trong container node-exporter trên cổng 9100
       - targets: ['node-exporter:9100']
 
-  # 3. Giám sát Spark Master (Hệ thống/Master metrics)
   - job_name: 'spark-master'
-    static_configs:
-      - targets: ['spark-master:8080'] # Cổng UI của Master
     metrics_path: /metrics/master/
-
-  # 4. Giám sát Spark Driver (Ứng dụng Streaming Job)
-  - job_name: 'spark-driver'
-    metrics_path: /metrics/driver/
-
-  # 5. Giám sát Spark Worker
-  - job_name: 'spark-worker'
-    # Thay thế bằng tên các dịch vụ worker của bạn (ví dụ: spark-worker-1, spark-worker-2)
-    # Nếu chỉ có một dịch vụ spark-worker, hãy dùng:
     static_configs:
-      - targets: ['spark-worker:8081'] # Cổng UI của Worker (8081 là mặc định)
-    metrics_path: /metrics/worker/ # Worker và Application metrics thường lộ trên cùng cổng
+      - targets: ['spark-master:8080']
+
+  - job_name: 'spark-worker'
+    metrics_path: /metrics/worker/
+    static_configs:
+      - targets: ['spark-worker:8081']
+
+  - job_name: 'spark-driver'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['spark-master:8000']
