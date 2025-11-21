@@ -116,13 +116,11 @@ services:
       - minio
       - mediamtx # Producer cần Mediamtx để kết nối
     environment:
-      # Cấu hình biến môi trường cho Producer Python
       MINIO_ENDPOINT: minio:9000
       KAFKA_BROKER: kafka:9092
     networks:
       - violence-detection-net
     volumes:
-      # Mount code để dễ debug/cập nhật
       - ../scripts:/app/scripts
       - ../data:/app/data
     restart: on-failure
@@ -190,7 +188,7 @@ services:
       - spark-master
     restart: always
     
-# # ---- Hive metastore -----
+  # ---- Hive metastore -----
   mysql:
     image: mysql:8.4.5
     container_name: mysql
@@ -230,9 +228,7 @@ services:
     ports:
       - "9083:9083"
     environment:
-      # chọn none | init | upgrade
       - HIVE_SCHEMA_ACTION=none
-      # mysql host/port (sử dụng tên service 'mysql' trong docker-compose)
       - WAIT_FOR_HOST=mysql
       - WAIT_FOR_PORT=3306
       - WAIT_TIMEOUT=120
@@ -240,9 +236,7 @@ services:
       - HIVE_HOME=/opt/hive
       - HIVE_SCHEMA_ACTION=init
     volumes:
-      # mount hive-site.xml (bạn phải chuẩn bị file này)
       - ../config/hive_metastore/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
-      # optional: mount local lib if bạn muốn override hoặc thêm jars
     depends_on:
       - mysql
     networks:
@@ -271,7 +265,7 @@ services:
     container_name: grafana
     ports:
       - "3001:3000"
-    user: "0" # Fix permission issues in some environments
+    user: "0" 
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
@@ -286,7 +280,6 @@ services:
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node-exporter
-    # Thu thập metrics từ máy chủ Docker Host
     ports:
       - "9100:9100"
     volumes:
@@ -298,6 +291,40 @@ services:
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host)($$|/)'
     restart: unless-stopped
+    networks:
+      - violence-detection-net
+
+  # ---- Trino -----
+  trino-coordinator:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.trino
+    image: trino-with-s3a
+    container_name: trino-coordinator
+    hostname: trino-coordinator
+    ports:
+      - "8081:8080"
+    volumes:
+      - ../config/trino/coordinator/etc:/etc/trino
+    networks:
+      - violence-detection-net
+
+
+  trino-worker-1:
+    image: trino-with-s3a
+    container_name: trino-worker-1
+    hostname: trino-worker-1
+    volumes:
+      - ../config/trino/worker1/etc:/etc/trino
+    networks:
+      - violence-detection-net
+
+  trino-worker-2:
+    image: trino-with-s3a
+    container_name: trino-worker-2
+    hostname: trino-worker-2
+    volumes:
+      - ../config/trino/worker2/etc:/etc/trino
     networks:
       - violence-detection-net
 volumes:
