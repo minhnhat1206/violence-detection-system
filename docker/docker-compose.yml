@@ -189,7 +189,8 @@ services:
     depends_on:
       - spark-master
     restart: always
-# ---- Hive metastore -----
+    
+# # ---- Hive metastore -----
   mysql:
     image: mysql:8.4.5
     container_name: mysql
@@ -203,16 +204,45 @@ services:
     networks:
       - violence-detection-net
 
+#   hive-metastore:
+#     build:
+#       context: ..
+#       dockerfile: docker/Dockerfile.hive
+#     container_name: hive-metastore
+#     hostname: hive-metastore
+#     ports:
+#       - '9083:9083'
+#     volumes:
+#       - ../config/hive_metastore/metastore-site.xml:/opt/apache-hive-metastore-3.0.0-bin/conf/metastore-site.xml:ro
+#     environment:
+#       METASTORE_DB_HOSTNAME: mysql
+#     depends_on:
+#       - mysql
+#     networks:
+#       - violence-detection-net
+
   hive-metastore:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.hive
     container_name: hive-metastore
     hostname: hive-metastore
-    image: 'bitsondatadev/hive-metastore:latest'
     ports:
-      - '9083:9083'
-    volumes:
-      - ../config/hive_metastore/metastore-site.xml:/opt/apache-hive-metastore-3.0.0-bin/conf/metastore-site.xml:ro
+      - "9083:9083"
     environment:
-      METASTORE_DB_HOSTNAME: mysql
+      # chọn none | init | upgrade
+      - HIVE_SCHEMA_ACTION=none
+      # mysql host/port (sử dụng tên service 'mysql' trong docker-compose)
+      - WAIT_FOR_HOST=mysql
+      - WAIT_FOR_PORT=3306
+      - WAIT_TIMEOUT=120
+      - HIVE_CONF_DIR=/opt/hive/conf
+      - HIVE_HOME=/opt/hive
+      - HIVE_SCHEMA_ACTION=init
+    volumes:
+      # mount hive-site.xml (bạn phải chuẩn bị file này)
+      - ../config/hive_metastore/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
+      # optional: mount local lib if bạn muốn override hoặc thêm jars
     depends_on:
       - mysql
     networks:
