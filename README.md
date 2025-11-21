@@ -83,74 +83,190 @@ docker exec -it kafka kafka-console-consumer.sh --bootstrap-server localhost:909
 ```
 
 -----
+# 5\. Spark Streaming Job → Ghi dữ liệu vào Iceberg (MinIO)
 
-### 5\.  Xử lý và Lưu trữ Dữ liệu (Spark Streaming Job)
+### Chạy ứng dụng:
 
-Đây là bước chạy ứng dụng Spark Structured Streaming để tiêu thụ kết quả từ Kafka và ghi vào MinIO (Iceberg/Parquet).
-
-#### 5.1. Chạy Spark Streaming Job
-
-Thực thi lệnh sau đây để chạy ứng dụng `kafka_parquet_sink.py` trên Cluster Spark. **Đây là bước bắt buộc để sinh ra các metrics Driver và Streaming cho Grafana.**
-
-```bash
+```
+docker exec -it spark-master bash -lc "
 spark-submit \
     --master spark://spark-master:7077 \
-    /opt/bitnami/spark/scripts/kafka_parquet_sink.py
+    /opt/bitnami/spark/scripts/kafka_iceberg_sink.py
+"
 ```
 
-
-#### 5.2. Xác nhận Dữ liệu Đã Ghi vào MinIO
-
-Sau khi Job chạy và xử lý dữ liệu (khoảng 1-2 phút) kiểm tra dữ liệu:
-
-1.  **Khởi động Spark Shell:**
-
-    ```bash
-    docker exec -it spark-master bash -lc "spark-shell --conf spark.driver.host=spark-master"
-    ```
-
-2.  **Đọc và Hiển thị Dữ liệu (trong Spark Shell):**
-
-    ```scala
-    val df = spark.read.parquet("s3a://inference-results/data/")
-    df.show(5)
-    ```
-
------
-
-### 6\.  Giám sát và Kiểm tra Luồng Dữ liệu
-
-#### 6.0 Kiểm tra dữ liệu các metric của prometheus
+Sau 30–60s dữ liệu sẽ xuất hiện trong:
 
 ```
-curl.exe "http://localhost:9090/api/v1/query?query=spark_driver_streaming_processed_records_total"
-
-curl.exe "http://localhost:9090/api/v1/query?query=spark_driver_streaming_end_to_end_latency_seconds"
-
+s3a://inference-results/iceberg_warehouse/inference_results/
 ```
 
+---
 
-#### 6.1. Giám sát Hiệu suất (Grafana)
+# 6\. Kiểm tra dữ liệu bằng Spark
 
-1.  **Truy cập Grafana:** Mở trình duyệt và truy cập `http://localhost:3001`
-2.  **Đăng nhập:** `admin`/`admin`.
-3.  Dashboard **"Spark Structured Streaming Pipeline Monitoring"** sẽ tự động được tải và hiển thị hiệu suất xử lý (Throughput, Latency) và trạng thái Cluster (Alive Workers, CPU Usage).
+```
+docker exec -it spark-master bash -lc "spark-shell --conf spark.driver.host=spark-master"
+```
 
-#### 6.2. Kiểm tra Luồng Cơ bản
+Trong Spark Shell:
 
-  * **RTSP Stream (MediaMTX):** Mở VLC với địa chỉ `rtsp://localhost:8554/cam_01`.
-  * **MinIO (S3 Storage):** Truy cập `http://localhost:9001` và kiểm tra bucket `violence-frames` (frame ảnh) và `inference-results/data` (file Parquet).
-  * **Kafka (Dữ liệu Luồng):** Kiểm tra xem Producer có đang gửi message không:
-    ```bash
-    docker exec -it kafka kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic ingest.media.events --from-beginning
-    ```
+```scala
+val df = spark.read.format("iceberg").load("iceberg.default.inference_results")
+df.show(5)
+```
 
------
+---
 
-## Dừng Dự án
+# 7\. Giám sát bằng Prometheus + Grafana
 
-Để dừng và gỡ bỏ tất cả các services và networks, chạy lệnh:
+### Kiểm tra metric Prometheus:
 
-```bash
+```
+curl "http://localhost:9090/api/v1/query?query=spark_driver_streaming_processed_records_total"
+curl "http://localhost:9090/api/v1/query?query=spark_driver_streaming_end_to_end_latency_seconds"
+```
+
+### Grafana Dashboard:
+
+* Truy cập: [http://localhost:3001](http://localhost:3001)
+* Login: `admin` / `admin`
+
+Dashboard hiển thị:
+
+* Throughput (records per batch)
+* Avg latency
+* Worker health
+* JVM metrics
+
+---
+
+# 8\. **TRUY VẤN DỮ LIỆU ICEBERG BẰNG TRINO** 
+
+Sau khi Spark đã ghi dữ liệu vào MinIO dưới dạng Iceberg table, bạn dùng Trino để truy vấn.
+
+---
+
+## 8.1. Truy cập Trino CLI
+
+**Không dùng bash để chạy SQL**, hãy dùng CLI:
+
+```
+docker exec -it trino-coordinator trino
+```
+
+Bạn sẽ thấy prompt:
+
+```
+trino>
+```
+
+---
+
+## 8.2. Kiểm tra catalog
+
+```
+SHOW CATALOGS;
+```
+
+Bạn sẽ thấy:
+
+```
+iceberg
+system
+tpch
+```
+
+---
+
+## 8.3. Kiểm tra namespace Iceberg
+
+```
+SHOW SCHEMAS FROM iceberg;
+```
+
+Mặc định:
+
+```
+default
+```
+
+---
+
+## 8.4. Xem danh sách bảng
+
+```
+SHOW TABLES FROM iceberg.default;
+```
+
+Nếu đúng, bạn sẽ thấy:
+
+```
+inference_results
+```
+
+---
+
+## 8.5. Truy vấn dữ liệu Iceberg
+
+### Xem 10 dòng mới nhất:
+
+```
+SELECT *
+FROM iceberg.default.inference_results
+ORDER BY timestamp_utc DESC
+LIMIT 10;
+```
+
+### Lấy số lượng record:
+
+```
+SELECT count(*) FROM iceberg.default.inference_results;
+```
+
+### Thống kê label:
+
+```
+SELECT label, count(*) 
+FROM iceberg.default.inference_results
+GROUP BY label;
+```
+
+### Thống kê latency:
+
+```
+SELECT avg(latency_ms) AS avg_latency_ms,
+       max(latency_ms) AS max_latency_ms
+FROM iceberg.default.inference_results;
+```
+
+---
+
+# 9\. Kiểm tra luồng trực tiếp
+
+* VLC RTSP:
+
+```
+rtsp://localhost:8554/cam_01
+```
+
+* MinIO Dashboard:
+
+```
+http://localhost:9001
+```
+
+Bucket:
+
+* `violence-frames` → ảnh frame
+* `inference-results` → Iceberg warehouse
+
+---
+
+# 10\. Dừng toàn bộ hệ thống
+
+```
 docker compose down
 ```
+
+---
