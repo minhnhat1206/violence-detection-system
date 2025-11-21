@@ -34,7 +34,7 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:9092"
       KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: PLAINTEXT
     depends_on:
-
+      - kafka
   # --- MinIO ---
   minio:
     image: dataguy16/minio:latest
