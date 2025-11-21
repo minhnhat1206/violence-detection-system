@@ -272,8 +272,5 @@ Bucket:
 ```
 docker compose down
 ```
-<<<<<<< HEAD
 
 ---
-=======
->>>>>>> b122156f9c7ba461a1c418b467605e6f59eb7f97
