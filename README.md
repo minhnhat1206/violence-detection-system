@@ -17,9 +17,12 @@ realtime-violence-detection/
 │   ├── spark-conf/ ...              <-- Cấu hình Metrics Spark
 │   └── docker-compose.yml
 └── scripts/
-    └── simulate_rtsp_streams.py
-    └── rtsp_frame_publisher.py (Producer)
-    └── kafka_parquet_sink.py (Consumer/Spark Job)
+    └── prepare_cameras_dataset.py (chia các clip được dùng để mô phỏng streaming cũng như metadata của từng cam)
+    └── simulate_rtsp_streams.py (giả lập luồng dữ liệu camera, dùng giao thức RTSP và chạy bằng rtsp_pusher để gửi dữ liệu cho Mediamtx)
+    └── rtsp_frame_publisher.py (Producer: gửi dữ liệu metadata đến kafka)
+    └── kafka_parquet_sink.py (tiêu thụ kết quả từ Kafka và ghi vào MinIO (Iceberg/Parquet))
+    └── inference_worker.py (giả lập service Model để lưu kết quả vào model.inference.results)
+
 ```
 sau đó chạy script `prepare_cameras_dataset.py` để chia các clip được dùng để mô phỏng streaming cũng như metadata của từng cam
 
@@ -269,5 +272,8 @@ Bucket:
 ```
 docker compose down
 ```
+<<<<<<< HEAD
 
 ---
+=======
+>>>>>>> b122156f9c7ba461a1c418b467605e6f59eb7f97
