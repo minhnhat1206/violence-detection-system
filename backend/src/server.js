@@ -44,7 +44,7 @@ app.get('/alerts', async (req, res) => {
       event_id: row[0],
       location: row[1],
       timestamp: row[2], // giữ nguyên string, frontend sẽ format
-      frame_s3_path: row[3],
+      frame_url: `http://localhost:9000/rtsp-frames/${row[3]}`,
       label: row[4],
       violence_score: parseFloat(row[5]),
       status: row[6],

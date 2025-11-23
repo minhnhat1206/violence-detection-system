@@ -17,9 +17,7 @@ hlsSegmentCount: 10
 webrtc: yes
 webrtcAddress: :8889
 
-# --- DÒNG ĐÃ SỬA LỖI ---
-# Giá trị giờ là một chuỗi (string), không phải mảng (array)
-webrtcAllowOrigin: 'http://localhost:3000'
+webrtcAllowOrigin: 'http://localhost:3002'
 # -----------------------
 
 paths:
