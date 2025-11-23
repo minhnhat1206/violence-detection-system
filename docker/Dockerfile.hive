@@ -35,8 +35,7 @@ RUN rm -f ${HIVE_LIB_DIR}/guava-*.jar \
  && curl -fSL -o ${HIVE_LIB_DIR}/guava-${GUAVA_VER}.jar \
     https://repo1.maven.org/maven2/com/google/guava/guava/${GUAVA_VER}/guava-${GUAVA_VER}.jar
 
-# Copy custom entrypoint
-COPY ../config/hive_metastore/entrypoint.sh /usr/local/bin/docker-entrypoint-hive.sh
+COPY config/hive_metastore/entrypoint.sh /usr/local/bin/docker-entrypoint-hive.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint-hive.sh
 
 # Expose Hive Metastore port
