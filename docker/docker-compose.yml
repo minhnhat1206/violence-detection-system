@@ -63,9 +63,18 @@ services:
     depends_on:
       - minio
     entrypoint: >
-      /bin/sh -c "sleep 10 && mc alias set minio http://minio:9000 minio mypassword && mc mb minio/inference-results && mc mb minio/checkpoint && tail -F anything"
+      /bin/sh -c "
+        sleep 20 &&
+        mc alias set minio http://minio:9000 minio mypassword &&
+        mc mb minio/inference-results || true &&
+        mc mb minio/checkpoint || true &&
+        mc policy set public minio/inference-results &&
+        mc policy set public minio/rtsp-frames &&
+        tail -f /dev/null
+      "
     networks:
       - violence-detection-net
+
 
   # --- RTSP Pusher ---
   rtsp_pusher:
@@ -202,23 +211,6 @@ services:
     networks:
       - violence-detection-net
 
-#   hive-metastore:
-#     build:
-#       context: ..
-#       dockerfile: docker/Dockerfile.hive
-#     container_name: hive-metastore
-#     hostname: hive-metastore
-#     ports:
-#       - '9083:9083'
-#     volumes:
-#       - ../config/hive_metastore/metastore-site.xml:/opt/apache-hive-metastore-3.0.0-bin/conf/metastore-site.xml:ro
-#     environment:
-#       METASTORE_DB_HOSTNAME: mysql
-#     depends_on:
-#       - mysql
-#     networks:
-#       - violence-detection-net
-
   hive-metastore:
     build:
       context: ..
@@ -228,7 +220,7 @@ services:
     ports:
       - "9083:9083"
     environment:
-      - HIVE_SCHEMA_ACTION=none
+      - HIVE_SCHEMA_ACTION=init
       - WAIT_FOR_HOST=mysql
       - WAIT_FOR_PORT=3306
       - WAIT_TIMEOUT=120
