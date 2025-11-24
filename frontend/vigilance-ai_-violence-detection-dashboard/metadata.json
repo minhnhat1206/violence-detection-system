@@ -1,0 +1,5 @@
+{
+  "name": "Vigilance AI: Violence Detection Dashboard",
+  "description": "A real-time dashboard for monitoring surveillance streams, managing violence detection alerts, viewing analytics, and interacting with an AI chatbot for system queries.",
+  "requestFramePermissions": []
+}
