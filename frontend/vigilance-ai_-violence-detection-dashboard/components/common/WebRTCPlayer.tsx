@@ -20,15 +20,12 @@ const WebRTCPlayer: React.FC<WebRTCPlayerProps> = ({ streamPath, isMuted = true 
     let sessionUrl = '';
     const pc = new RTCPeerConnection();
 
-    // Create a MediaStream and attach it to the video element immediately.
-    // Tracks will be added to this stream as they are received.
     const remoteStream = new MediaStream();
     if (videoRef.current) {
         videoRef.current.srcObject = remoteStream;
     }
 
     pc.ontrack = (event) => {
-        // Add the received track to the stream that's already attached to the video element.
         remoteStream.addTrack(event.track);
     };
 
@@ -36,7 +33,6 @@ const WebRTCPlayer: React.FC<WebRTCPlayerProps> = ({ streamPath, isMuted = true 
       if (isCancelled) return;
       switch(pc.connectionState) {
         case 'connected':
-          // The connection has become fully connected
           break;
         case 'disconnected':
         case 'failed':
