@@ -1,0 +1,19 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# System deps for pandas/pyarrow
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY docker/requirements_chatbot.txt .
+RUN pip install --no-cache-dir -r requirements_chatbot.txt
+
+# COPY scripts/chatbot/app.py scripts/chatbot/ingest.py scripts/chatbot/rag_store.py ./
+
+EXPOSE 5002
+CMD ["python", "app.py"]
