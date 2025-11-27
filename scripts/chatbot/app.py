@@ -44,7 +44,7 @@ Câu hỏi: {question}
 Ngữ cảnh:
 {context}
 
-Trả lời ngắn gọn bằng tiếng Việt, có số liệu cụ thể nếu có."""
+Trả lời chi tiết bằng tiếng Việt, có số liệu cụ thể nếu có."""
         try:
             response = model.generate_content(prompt)
             return response.text.strip()
