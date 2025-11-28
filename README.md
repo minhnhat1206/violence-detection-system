@@ -21,7 +21,38 @@ realtime-violence-detection/
     └── rtsp_frame_publisher.py (Producer)
     └── kafka_parquet_sink.py (Consumer/Spark Job)
 ```
-sau đó chạy script `prepare_cameras_dataset.py` để chia các clip được dùng để mô phỏng streaming cũng như metadata của từng cam
+convert chúng về chuẩn H.264, độ phân giải 640x480, âm thanh AAC và lưu vào thư mục `data/RWF-2000/norTrain`.
+
+Tạo thư mục RWF-2000/norTrain/Fight với RWF-2000/norTrain/NonFight
+
+Đứng trong train/Fight để chạy terminal 
+
+```bash
+for f in *.avi; do
+    ffmpeg -i "$f" \
+        -c:v libx264 -profile:v main -level 3.1 \
+        -vf "scale=640:480:force_original_aspect_ratio=decrease,\
+pad=640:480:(ow-iw)/2:(oh-ih)/2,format=yuv420p" \
+        -c:a aac -ar 44100 -b:a 128k \
+        -r 30 -g 60 \
+        "../../norTrain/Fight/${f%.*}.mp4"
+done
+```
+
+Đứng trong train/NonFight để chạy terminal 
+
+```bash
+for f in *.avi; do
+    ffmpeg -i "$f" \
+        -c:v libx264 -profile:v main -level 3.1 \
+        -vf "scale=640:480:force_original_aspect_ratio=decrease,\
+pad=640:480:(ow-iw)/2:(oh-ih)/2,format=yuv420p" \
+        -c:a aac -ar 44100 -b:a 128k \
+        -r 30 -g 60 \
+        "../../norTrain/NonFight/${f%.*}.mp4"
+done
+```
+
 
 Sau khi chạy xong thì folder data sẽ có cấu trúc như sau:
 ```
