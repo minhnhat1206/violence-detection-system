@@ -90,11 +90,14 @@ services:
       - ../tmp/rtsp-pusher:/app/tmp
       - ../logs/rtsp-pusher:/app/logs
       - ../pids:/app/pids
+      - ../data/raw/RWF-2000:/app/data/raw/RWF-2000
+      - ../data/playlist:/app/data/playlist
     depends_on:
       - mediamtx
     networks:
       - violence-detection-net
     restart: on-failure
+    # command: sh -c "tail -f /dev/null"
 
   # --- Mediamtx (RTSP Server) ---
   mediamtx:
@@ -106,9 +109,10 @@ services:
       - "8889:8889"
       - "8189:8189/udp"
     environment:
-      - RTSP_AUTH_USER: ""
-      - MTX_PROTOCOLS=tcp
-      - RTSP_AUTH_PASS: ""
+      RTSP_AUTH_USER: ""
+      MTX_PROTOCOLS: tcp
+      RTSP_AUTH_PASS: ""
+
     networks:
       - violence-detection-net
     restart: unless-stopped
@@ -339,34 +343,34 @@ services:
       - violence-detection-net
     restart: unless-stopped
 
-  rag_chatbot:
-    build: 
-      context: ..
-      dockerfile: docker/Dockerfile.chatbot
-    container_name: rag_chatbot
-    environment:
-      # MinIO
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-      - MINIO_SECURE=false
-      - ICEBERG_BUCKET=${ICEBERG_BUCKET}
-      - ICEBERG_PREFIX=${ICEBERG_PREFIX}
-      # Vector store
-      - CHROMA_DIR=/data/chroma
-      # Optional LLM (OpenAI)
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-    depends_on:
-      - minio
-    volumes:
-      - chroma_data:/data/chroma
-      - ../scripts/chatbot:/app
-    ports:
-      - "5002:5002"
-    networks:
-      - violence-detection-net
-    restart: unless-stopped
+  # rag_chatbot:
+  #   build: 
+  #     context: ..
+  #     dockerfile: docker/Dockerfile.chatbot
+  #   container_name: rag_chatbot
+  #   environment:
+  #     # MinIO
+  #     - MINIO_ENDPOINT=minio:9000
+  #     - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+  #     - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+  #     - MINIO_SECURE=false
+  #     - ICEBERG_BUCKET=${ICEBERG_BUCKET}
+  #     - ICEBERG_PREFIX=${ICEBERG_PREFIX}
+  #     # Vector store
+  #     - CHROMA_DIR=/data/chroma
+  #     # Optional LLM (OpenAI)
+  #     - OPENAI_API_KEY=${OPENAI_API_KEY}
+  #     - GEMINI_API_KEY=${GEMINI_API_KEY}
+  #   depends_on:
+  #     - minio
+  #   volumes:
+  #     - chroma_data:/data/chroma
+  #     - ../scripts/chatbot:/app
+  #   ports:
+  #     - "5002:5002"
+  #   networks:
+  #     - violence-detection-net
+  #   restart: unless-stopped
 volumes:
   zookeeper_data:
   kafka_data:
