@@ -8,14 +8,20 @@ from natsort import natsorted
 
 # ================= CẤU HÌNH HỆ THỐNG =================
 # Đường dẫn tới thư mục video (Bạn hãy sửa lại cho đúng máy bạn)
-VIOLENCE_DIR = "../data/raw/RWF-2000/norTrain/Fight" 
-NON_VIOLENCE_DIR = "../data/raw/RWF-2000/norTrain/NonFight"
+# VIOLENCE_DIR = "../data/raw/RWF-2000/norTrain/Fight" 
+# NON_VIOLENCE_DIR = "../data/raw/RWF-2000/norTrain/NonFight"
+
+VIOLENCE_DIR = "/app/data/raw/RWF-2000/norTrain/Fight" 
+NON_VIOLENCE_DIR = "/app/data/raw/RWF-2000/norTrain/NonFight"
 
 # Đường dẫn tới thư mục chứa các file playlist được tạo ra (Mới)
-PLAYLIST_DIR = "../data/playlist" 
+PLAYLIST_DIR = "/app/data/playlist" 
 
 # Cấu hình RTSP Server
-RTSP_SERVER_URL = "rtsp://localhost:8554"
+# RTSP_SERVER_URL = "rtsp://localhost:8554"
+RTSP_SERVER_URL = "rtsp://mediamtx:8554"
+
+
 
 # Số lượng camera muốn giả lập
 NUM_CAMERAS = 16
