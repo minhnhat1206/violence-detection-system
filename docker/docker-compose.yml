@@ -106,8 +106,9 @@ services:
       - "8889:8889"
       - "8189:8189/udp"
     environment:
-      RTSP_AUTH_USER: ""
-      RTSP_AUTH_PASS: ""
+      - RTSP_AUTH_USER: ""
+      - MTX_PROTOCOLS=tcp
+      - RTSP_AUTH_PASS: ""
     networks:
       - violence-detection-net
     restart: unless-stopped
