@@ -19,7 +19,7 @@ PLAYLIST_DIR = "/app/data/playlist"
 
 # Cấu hình RTSP Server
 # RTSP_SERVER_URL = "rtsp://localhost:8554"
-RTSP_SERVER_URL = "rtsp://mediamtx:8554"
+RTSP_SERVER_URL = "rtsp://103.78.3.29:8554"
 
 
 
