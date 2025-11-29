@@ -53,6 +53,8 @@ pad=640:480:(ow-iw)/2:(oh-ih)/2,format=yuv420p" \
 done
 ```
 
+cd scripts. chay python metadataRTSP.py
+
 
 Sau khi chạy xong thì folder data sẽ có cấu trúc như sau:
 ```
@@ -83,6 +85,10 @@ realtime-violence-detection/
 
 ### 3\.  Build và Khởi động Tất cả Dịch vụ
 
+
+vo Terminal SSH vao VPS
+
+connect Github chay git clone repo VioMobileNet docker compose up -d --build
 
 ```bash
 docker compose up -d --build --force-recreate
