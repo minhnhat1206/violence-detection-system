@@ -21,10 +21,9 @@ COPY docker/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy toàn bộ code Producer vào thư mục làm việc
-COPY ../scripts/rtsp_frame_publisher.py /app/rtsp_frame_publisher.py
-COPY ../scripts/prepare_cameras_dataset.py /app/prepare_cameras_dataset.py
+COPY ../scripts/producerRTSP.py /app/producerRTSP.py
 # Copy các file config cần thiết
 COPY ../config/kafka/producer.properties /app/producer.properties
 
 # Lệnh mặc định để chạy Producer
-CMD ["python", "rtsp_frame_publisher.py"]
+CMD ["python", "producerRTSP.py"]
