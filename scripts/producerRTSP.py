@@ -8,7 +8,7 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 # ================= CẤU HÌNH =================
-API_URL = "http://103.78.3.29:8000"
+API_URL = "http://103.78.3.30:8000"
 KAFKA_BROKER = "http://kafka:9092"
 KAFKA_TOPIC = "urban-safety-alerts"
 METADATA_FILE = "./data/metadata/camera_registry.csv"
