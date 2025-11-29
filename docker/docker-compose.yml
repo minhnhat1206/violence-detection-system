@@ -56,40 +56,42 @@ services:
       - violence-detection-net
     restart: unless-stopped
 
-  # --- MinIO ---
+    # --- MinIO ---
   minio:
-    image: bitnamilegacy/minio:latest
+    image: dataguy16/minio:latest
     container_name: minio
     ports:
-      - "9000:9000" # Cổng API/Data
-      - "9001:9001" # Cổng Console UI
+      - "9000:9000"
+      - "9001:9001"
     environment:
       - MINIO_ROOT_USER=minio
       - MINIO_ROOT_PASSWORD=mypassword
     volumes:
-      - minio_data:/data 
+      - minio_data:/bitnami/minio/data
     networks:
       - violence-detection-net
     restart: unless-stopped
 
-  # --- MinIO Client (Tự động tạo Bucket) ---
+  # --- MinIO Client ---
   minio_client:
-    image: bitnamilegacy/minio-client:latest
+    image: dataguy16/minio-client:latest
     container_name: minio_client
     depends_on:
       - minio
     entrypoint: >
       /bin/sh -c "
-        sleep 20 &&
-        mc alias set minio http://minio:9000 minio mypassword &&
-        mc mb minio/inference-results || true &&
-        mc mb minio/checkpoint || true &&
-        mc policy set public minio/inference-results &&
-        mc policy set public minio/rtsp-frames &&
+        sleep 20 && \
+        mc alias set minio http://minio:9000 minio mypassword && \
+        mc mb minio/inference-results || true && \
+        mc mb minio/checkpoint || true && \
+        mc mb minio/rtsp-frames || true && \
+        mc policy set public minio/inference-results || true && \
+        mc policy set public minio/rtsp-frames || true && \
         tail -f /dev/null
       "
     networks:
       - violence-detection-net
+
 
 
   # --- RTSP Pusher ---
