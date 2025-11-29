@@ -261,6 +261,10 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+
     depends_on:
       - prometheus
     volumes:
@@ -334,9 +338,38 @@ services:
       - violence-detection-net
     restart: unless-stopped
 
+  rag_chatbot:
+    build: 
+      context: ..
+      dockerfile: docker/Dockerfile.chatbot
+    container_name: rag_chatbot
+    environment:
+      # MinIO
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_SECURE=false
+      - ICEBERG_BUCKET=${ICEBERG_BUCKET}
+      - ICEBERG_PREFIX=${ICEBERG_PREFIX}
+      # Vector store
+      - CHROMA_DIR=/data/chroma
+      # Optional LLM (OpenAI)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - minio
+    volumes:
+      - chroma_data:/data/chroma
+      - ../scripts/chatbot:/app
+    ports:
+      - "5002:5002"
+    networks:
+      - violence-detection-net
+    restart: unless-stopped
 volumes:
   zookeeper_data:
   kafka_data:
   minio_data:
   mysql-data:
   grafana-storage:
+  chroma_data:
