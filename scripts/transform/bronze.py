@@ -14,22 +14,27 @@ KAFKA_TOPIC = "urban-safety-alerts"
 # Lakehouse Config
 CATALOG_NAME = "iceberg"
 NAMESPACE = "default"
-TABLE_NAME = "bronze_urban_safety2"  # Tên bảng Bronze
+TABLE_NAME = "bronzeViolence"  # Tên bảng Bronze
 FULL_TABLE_NAME = f"{CATALOG_NAME}.{NAMESPACE}.{TABLE_NAME}"
 
 # Đường dẫn (MinIO/S3)
 WAREHOUSE_PATH = "s3a://warehouse/"
-CHECKPOINT_PATH = "s3a://checkpoint/bronze_urban_safety2/"
+CHECKPOINT_PATH = "s3a://checkpoint/bronzeViolence/"
 
 # ================= SCHEMA DEFINITION =================
 # Dựa trên code Producer: enriched_data
 SCHEMA = StructType([
     # -- Fields từ CSV (Camera Registry) --
     StructField("camera_id", StringType(), True),
+    StructField("city", StringType(), True),   
+    StructField("district", StringType(), True),     
+    StructField("ward", StringType(), True),     
+    StructField("street", StringType(), True),     
     StructField("latitude", DoubleType(), True),   # Producer đã ép kiểu float
     StructField("longitude", DoubleType(), True),  # Producer đã ép kiểu float
-    StructField("district", StringType(), True), # Giả sử có trong CSV
-    
+    StructField("rtsp_url", StringType(), True),     
+    StructField("risk_level", StringType(), True),     
+
     # -- Fields từ Code Logic & API --
     StructField("timestamp", StringType(), True),       # ISO format string từ datetime.now()
     StructField("ai_timestamp", StringType(), True),    # Timestamp gốc từ AI
@@ -71,9 +76,14 @@ def ensure_iceberg_table():
         create_sql = f"""
         CREATE TABLE IF NOT EXISTS {FULL_TABLE_NAME} (
             camera_id string,
+            city string,
+            district string,
+            ward string,
+            street string,
             latitude double,
             longitude double,
-            district string,
+            rtsp_url string,
+            risk_level string,
             event_time timestamp, 
             ai_timestamp string,
             is_violent boolean,
@@ -87,15 +97,15 @@ def ensure_iceberg_table():
         PARTITIONED BY (days(event_time))
         """
         spark.sql(create_sql)
-        print(f"✅ [Iceberg] Table {FULL_TABLE_NAME} is ready.")
+        print(f"[Iceberg] Table {FULL_TABLE_NAME} is ready.")
     except Exception as e:
-        print(f"❌ [Iceberg] Init failed: {e}")
+        print(f"[Iceberg] Init failed: {e}")
         traceback.print_exc()
 
 ensure_iceberg_table()
 
 # ================= READ STREAM (KAFKA) =================
-print(f"🎧 Reading stream from {KAFKA_BROKER} topic: {KAFKA_TOPIC}")
+print(f"Reading stream from {KAFKA_BROKER} topic: {KAFKA_TOPIC}")
 
 df_kafka = spark.readStream \
     .format("kafka") \
@@ -121,7 +131,7 @@ def process_batch(batch_df, batch_id):
     if batch_df.isEmpty():
         return
     
-    print(f"⚡ Processing Batch ID: {batch_id} | Records: {batch_df.count()}")
+    print(f"Processing Batch ID: {batch_id} | Records: {batch_df.count()}")
     
     try:
         # Repartition để tránh lỗi Small Files (quan trọng với Iceberg)
