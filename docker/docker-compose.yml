@@ -73,8 +73,8 @@ services:
         mc mb minio/inference-results || true && \
         mc mb minio/checkpoint || true && \
         mc mb minio/rtsp-frames || true && \
-        mc policy set public minio/inference-results || true && \
-        mc policy set public minio/rtsp-frames || true && \
+        mc anonymous set download minio/inference-results || true
+        mc anonymous set download minio/rtsp-frames || true
         tail -f /dev/null
       "
     networks:
