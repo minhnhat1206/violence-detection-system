@@ -1,0 +1,17 @@
+data/raw/
+# git, local env
+.git
+.gitignore
+.env
+.vscode
+.DS_Store
+
+# logs, build outputs
+*.log
+tmp/
+dist/
+build/
+
+# OS / editor junk
+*.swp
+*.swo
