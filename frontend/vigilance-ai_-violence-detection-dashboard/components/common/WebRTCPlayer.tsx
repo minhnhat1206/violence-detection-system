@@ -54,6 +54,8 @@ const WebRTCPlayer: React.FC<WebRTCPlayerProps> = ({ streamPath, isMuted = true 
         await pc.setLocalDescription(offer);
 
         const whepUrl = `http://${window.location.hostname}:8889/${streamPath}/whep`;
+        // const whepUrl = `http://103.78.3.29:8889/${streamPath}/whep`;
+
         const response = await fetch(whepUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/sdp' },
