@@ -121,7 +121,7 @@ def process_camera(cam_id, cam_metadata):
         last_sent_time[cam_id] = now
         
         # Log ra màn hình
-        status_icon = "VIOLENCE 🚨" if is_violent else "Normal 🟢"
+        status_icon = "VIOLENCE" if is_violent else "Normal"
         print(f"Sent Kafka [{cam_id}] {status_icon} | Score: {score:.4f} | FPS: {enriched_data['fps']}")
 
     except Exception as e:
@@ -135,7 +135,7 @@ def main():
 
     # Không gọi start_ai_processing nữa
     
-    print(f"\n🎧 Producer đang chạy... Theo dõi topic: {KAFKA_TOPIC}")
+    print(f"\nProducer đang chạy... Theo dõi topic: {KAFKA_TOPIC}")
     print(f"Lấy dữ liệu từ: {API_URL}\n")
 
     executor = ThreadPoolExecutor(max_workers=8)

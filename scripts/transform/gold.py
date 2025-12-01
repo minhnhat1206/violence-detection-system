@@ -12,7 +12,7 @@ from pyspark.sql.types import TimestampType
 # ================= 1. CẤU HÌNH (ĐỒNG BỘ VỚI BRONZE) =================
 # MinIO / S3 Config
 WAREHOUSE_PATH = "s3a://warehouse/"
-CHECKPOINT_PATH = "s3a://checkpoint/gold_monitoring/"
+CHECKPOINT_PATH = "s3a://checkpoint/goldMonitoring/"
 
 # Iceberg Catalog
 CATALOG = "iceberg"
@@ -116,8 +116,10 @@ init_gold_layer()
 
 # ================= 3. CORE LOGIC =================
 print(f"Reading stream from {BRONZE_TABLE}")
+
 raw_stream = spark.readStream \
     .format("iceberg") \
+    .option("stream-from-timestamp", "1") \
     .option("streaming-skip-delete-snapshots", "true") \
     .option("streaming-skip-overwrite-snapshots", "true") \
     .load(BRONZE_TABLE)
@@ -125,7 +127,7 @@ raw_stream = spark.readStream \
 # 3.1 CLEANING & WATERMARK
 df_clean = raw_stream \
     .drop("image_preview") \
-    .withWatermark("event_time", "10 minutes")
+    .withWatermark("event_time", "30 seconds") # Sửa từ "10 minutes" -> "30 seconds"
 
 # 3.2 AGGREGATION
 df_agg = df_clean.groupBy(
@@ -215,13 +217,16 @@ def merge_data_gold(batch_df, batch_id):
         batch_df.unpersist()
 
 # ================= 5. RUN QUERY =================
-print("Starting Gold Layer Stream...")
+
+
+# ================= 5. RUN QUERY =================
+print("Starting Gold Layer Stream (TURBO MODE)...")
 
 query = df_final.writeStream \
     .outputMode("append") \
     .foreachBatch(merge_data_gold) \
     .option("checkpointLocation", CHECKPOINT_PATH) \
-    .trigger(processingTime="1 minute") \
+    .trigger(availableNow=True)  \
     .start()
 
 try:
@@ -229,3 +234,4 @@ try:
 except KeyboardInterrupt:
     print("Stopping Gold Query...")
     query.stop()
+
