@@ -1,26 +1,101 @@
-logLevel: info
+logLevel: debug
 
-# RTSP server (publisher sẽ push tới đây)
 rtsp: yes
 rtspAddress: :8554
 
 rtmp: no
 
-# HLS global (dùng để serve .m3u8)
 hls: yes
 hlsAddress: :8888
 hlsAlwaysRemux: yes
 hlsSegmentDuration: 1s
 hlsSegmentCount: 10
 
-# Cấu hình WebRTC (WHEP/WHIP)
 webrtc: yes
 webrtcAddress: :8889
-
 webrtcAllowOrigin: 'http://localhost:3002'
-# -----------------------
 
 paths:
+  cam_01:
+    source: rtsp://103.78.3.29:8554/cam01
+    sourceOnDemand: yes
+    maxReaders: 50
+
+  cam_02:
+    source: rtsp://103.78.3.29:8554/cam02
+    sourceOnDemand: yes
+    maxReaders: 50
+
+  cam_03:
+    source: rtsp://103.78.3.29:8554/cam03
+    sourceOnDemand: yes
+    maxReaders: 50
+
+  cam_04:
+    source: rtsp://103.78.3.29:8554/cam04
+    sourceOnDemand: yes
+    maxReaders: 50
+
+  cam_05:
+    source: rtsp://103.78.3.29:8554/cam05
+    sourceOnDemand: yes
+    maxReaders: 50
+
+  cam_06:
+    source: rtsp://103.78.3.29:8554/cam06
+    sourceOnDemand: yes
+    maxReaders: 50
+
+  cam_07:
+    source: rtsp://103.78.3.29:8554/cam07
+    sourceOnDemand: yes
+    maxReaders: 50
+
+  cam_08:
+    source: rtsp://103.78.3.29:8554/cam08
+    sourceOnDemand: yes
+    maxReaders: 50
+
+  cam_09:
+    source: rtsp://103.78.3.29:8554/cam09
+    sourceOnDemand: yes
+    maxReaders: 50
+
+  cam_10:
+    source: rtsp://103.78.3.29:8554/cam10
+    sourceOnDemand: yes
+    maxReaders: 50
+
+  cam_11:
+    source: rtsp://103.78.3.29:8554/cam11
+    sourceOnDemand: yes
+    maxReaders: 50
+
+  cam_12:
+    source: rtsp://103.78.3.29:8554/cam12
+    sourceOnDemand: yes
+    maxReaders: 50
+
+  cam_13:
+    source: rtsp://103.78.3.29:8554/cam13
+    sourceOnDemand: yes
+    maxReaders: 50
+
+  cam_14:
+    source: rtsp://103.78.3.29:8554/cam14
+    sourceOnDemand: yes
+    maxReaders: 50
+
+  cam_15:
+    source: rtsp://103.78.3.29:8554/cam15
+    sourceOnDemand: yes
+    maxReaders: 50
+
+  cam_16:
+    source: rtsp://103.78.3.29:8554/cam16
+    sourceOnDemand: yes
+    maxReaders: 50
+
   all:
     source: publisher
     maxReaders: 50
