@@ -3,77 +3,83 @@ networks:
     driver: bridge
 
 services:
-  # --- Zookeeper ---
-  zookeeper:
-    image: bitnamilegacy/zookeeper:latest
-    container_name: zookeeper
-    ports:
-      - "2181:2181"
-    environment:
-      - ALLOW_ANONYMOUS_LOGIN=yes
-    volumes:
-      - zookeeper_data:/bitnami/zookeeper
-    networks:
-      - violence-detection-net
-    restart: unless-stopped
-
-  # --- Kafka ---
   kafka:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.kafka
     container_name: kafka
-    ports:
-      - "9092:9092"
+    image: apache/kafka:4.0.1-rc2
     environment:
-      KAFKA_CFG_BROKER_ID: 1
-      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
-      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      ALLOW_PLAINTEXT_LISTENER: yes
-    depends_on:
-      - zookeeper
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+    ports:
+      - "19092:9092"
     volumes:
-      - kafka_data:/bitnami/kafka
+      - kafka-data:/var/lib/kafka/data  
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/9092"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     networks:
       - violence-detection-net
-    restart: unless-stopped
-
-  # --- MinIO ---
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "18085:8080"  
+    environment:
+      KAFKA_CLUSTERS_0_NAME: kraft-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092  
+      KAFKA_CLUSTERS_0_ZOOKEEPER: ""              
+    depends_on:
+      - kafka
+    networks:
+      - violence-detection-net
+    # --- MinIO ---
   minio:
-    image: bitnamilegacy/minio:latest
+    image: dataguy16/minio:latest
     container_name: minio
     ports:
-      - "9000:9000" # Cổng API/Data
-      - "9001:9001" # Cổng Console UI
+      - "9000:9000"
+      - "9001:9001"
     environment:
       - MINIO_ROOT_USER=minio
       - MINIO_ROOT_PASSWORD=mypassword
     volumes:
-      - minio_data:/data 
+      - minio_data:/bitnami/minio/data
     networks:
       - violence-detection-net
     restart: unless-stopped
 
-  # --- MinIO Client (Tự động tạo Bucket) ---
+  # --- MinIO Client ---
   minio_client:
-    image: bitnamilegacy/minio-client:latest
+    image: dataguy16/minio-client:latest
     container_name: minio_client
     depends_on:
       - minio
     entrypoint: >
       /bin/sh -c "
-        sleep 20 &&
-        mc alias set minio http://minio:9000 minio mypassword &&
-        mc mb minio/inference-results || true &&
-        mc mb minio/checkpoint || true &&
-        mc policy set public minio/inference-results &&
-        mc policy set public minio/rtsp-frames &&
+        sleep 20 && \
+        mc alias set minio http://minio:9000 minio mypassword && \
+        mc mb minio/inference-results || true && \
+        mc mb minio/checkpoint || true && \
+        mc mb minio/rtsp-frames || true && \
+        mc anonymous set download minio/inference-results || true
+        mc anonymous set download minio/rtsp-frames || true
         tail -f /dev/null
       "
     networks:
       - violence-detection-net
+
 
 
   # --- RTSP Pusher ---
@@ -90,11 +96,14 @@ services:
       - ../tmp/rtsp-pusher:/app/tmp
       - ../logs/rtsp-pusher:/app/logs
       - ../pids:/app/pids
-    depends_on:
-      - mediamtx
+      - ../data/raw/RWF-2000:/app/data/raw/RWF-2000
+      - ../data/playlist:/app/data/playlist
+    # depends_on:
+    #   - mediamtx
     networks:
       - violence-detection-net
     restart: on-failure
+    # command: sh -c "tail -f /dev/null"
 
   # --- Mediamtx (RTSP Server) ---
   mediamtx:
@@ -107,7 +116,9 @@ services:
       - "8189:8189/udp"
     environment:
       RTSP_AUTH_USER: ""
+      MTX_PROTOCOLS: tcp
       RTSP_AUTH_PASS: ""
+
     networks:
       - violence-detection-net
     restart: unless-stopped
@@ -120,10 +131,10 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.producer
     container_name: producer
-    depends_on:
-      - kafka
-      - minio
-      - mediamtx # Producer cần Mediamtx để kết nối
+    # depends_on:
+    #   - kafka
+    #   - minio
+    #   - rtsp_pusher
     environment:
       MINIO_ENDPOINT: minio:9000
       KAFKA_BROKER: kafka:9092
@@ -261,6 +272,10 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+
     depends_on:
       - prometheus
     volumes:
@@ -334,9 +349,37 @@ services:
       - violence-detection-net
     restart: unless-stopped
 
+  rag_chatbot:
+    build: 
+      context: ..
+      dockerfile: docker/Dockerfile.chatbot
+    container_name: rag_chatbot
+    environment:
+      # MinIO
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_SECURE=false
+      - ICEBERG_BUCKET=${ICEBERG_BUCKET}
+      - ICEBERG_PREFIX=${ICEBERG_PREFIX}
+      # Vector store
+      - CHROMA_DIR=/data/chroma
+      # Optional LLM (OpenAI)
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - minio
+    volumes:
+      - chroma_data:/data/chroma
+      - ../scripts/chatbot:/app
+    ports:
+      - "5002:5002"
+    networks:
+      - violence-detection-net
+    restart: unless-stopped
 volumes:
   zookeeper_data:
-  kafka_data:
+  kafka-data:
   minio_data:
   mysql-data:
   grafana-storage:
+  chroma_data:

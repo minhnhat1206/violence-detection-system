@@ -10,8 +10,9 @@ RUN apt-get update && \
 # Thiết lập thư mục làm việc
 WORKDIR /app
 
-COPY ../scripts/simulate_rtsp_streams.py /app/simulate_rtsp_streams.py
+COPY ../scripts/simulateRTSP.py /app/simulateRTSP.py
+RUN pip install --no-cache-dir natsort
 
 
 # Lệnh mặc định sẽ chạy script start
-CMD ["python", "simulate_rtsp_streams.py", "start"]
+CMD ["python", "simulateRTSP.py", "start"]

@@ -1,5 +1,5 @@
 # docker/Dockerfile.spark
-FROM bitnamilegacy/spark:3.4.2
+FROM dataguy16/spark:3.3
 
 USER root
 
