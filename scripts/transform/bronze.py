@@ -1,7 +1,7 @@
 import sys
 import traceback
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, from_json, to_timestamp, current_timestamp, date_format
+from pyspark.sql.functions import col, from_json, to_timestamp, current_timestamp, to_date
 from pyspark.sql.types import (
     StructType, StructField, StringType, DoubleType, 
     BooleanType, IntegerType, FloatType
@@ -14,7 +14,7 @@ KAFKA_TOPIC = "urban-safety-alerts"
 # Lakehouse Config
 CATALOG_NAME = "iceberg"
 NAMESPACE = "default"
-TABLE_NAME = "bronzeViolence"  # Tên bảng Bronze
+TABLE_NAME = "bronzeViolence"  # Đổi tên bảng để tránh conflict schema cũ
 FULL_TABLE_NAME = f"{CATALOG_NAME}.{NAMESPACE}.{TABLE_NAME}"
 
 # Đường dẫn (MinIO/S3)
@@ -22,27 +22,23 @@ WAREHOUSE_PATH = "s3a://warehouse/"
 CHECKPOINT_PATH = "s3a://checkpoint/bronzeViolence/"
 
 # ================= SCHEMA DEFINITION =================
-# Dựa trên code Producer: enriched_data
 SCHEMA = StructType([
-    # -- Fields từ CSV (Camera Registry) --
     StructField("camera_id", StringType(), True),
     StructField("city", StringType(), True),   
     StructField("district", StringType(), True),     
     StructField("ward", StringType(), True),     
     StructField("street", StringType(), True),     
-    StructField("latitude", DoubleType(), True),   # Producer đã ép kiểu float
-    StructField("longitude", DoubleType(), True),  # Producer đã ép kiểu float
+    StructField("latitude", DoubleType(), True),
+    StructField("longitude", DoubleType(), True),
     StructField("rtsp_url", StringType(), True),     
     StructField("risk_level", StringType(), True),     
-
-    # -- Fields từ Code Logic & API --
-    StructField("timestamp", StringType(), True),       # ISO format string từ datetime.now()
-    StructField("ai_timestamp", StringType(), True),    # Timestamp gốc từ AI
-    StructField("is_violent", BooleanType(), True),     # Quan trọng
-    StructField("score", DoubleType(), True),           # Quan trọng
+    StructField("timestamp", StringType(), True),
+    StructField("ai_timestamp", StringType(), True),
+    StructField("is_violent", BooleanType(), True),
+    StructField("score", DoubleType(), True),
     StructField("fps", DoubleType(), True),
-    StructField("latency_ms", DoubleType(), True),      # Có thể là int hoặc float
-    StructField("evidence_url", StringType(), True)     # URL video/ảnh
+    StructField("latency_ms", DoubleType(), True),
+    StructField("evidence_url", StringType(), True)
 ])
 
 # ================= SPARK SESSION SETUP =================
@@ -52,6 +48,7 @@ spark = SparkSession.builder \
             "org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.2,"
             "org.apache.hadoop:hadoop-aws:3.3.4,"
             "org.apache.iceberg:iceberg-spark-runtime-3.4_2.12:1.3.0") \
+    .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
     .config(f"spark.sql.catalog.{CATALOG_NAME}", "org.apache.iceberg.spark.SparkCatalog") \
     .config(f"spark.sql.catalog.{CATALOG_NAME}.type", "hive") \
     .config(f"spark.sql.catalog.{CATALOG_NAME}.uri", "thrift://hive-metastore:9083") \
@@ -66,13 +63,12 @@ spark = SparkSession.builder \
 spark.sparkContext.setLogLevel("WARN")
 
 # ================= KHỞI TẠO BẢNG ICEBERG (DDL) =================
-# Bronze Layer thường Partition theo ngày nhận dữ liệu (Processing Time) hoặc Event Time
 def ensure_iceberg_table():
     try:
         spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {CATALOG_NAME}.{NAMESPACE}")
         
-        # Tạo bảng nếu chưa tồn tại
-        # Partitioned by days(event_time) để tối ưu truy vấn theo thời gian
+        # SỬA ĐỔI: Thêm cột event_date và Partition theo cột này
+        # Loại bỏ days(event_time) gây lỗi
         create_sql = f"""
         CREATE TABLE IF NOT EXISTS {FULL_TABLE_NAME} (
             camera_id string,
@@ -84,7 +80,8 @@ def ensure_iceberg_table():
             longitude double,
             rtsp_url string,
             risk_level string,
-            event_time timestamp, 
+            event_time timestamp,
+            event_date date, 
             ai_timestamp string,
             is_violent boolean,
             score double,
@@ -94,13 +91,14 @@ def ensure_iceberg_table():
             ingest_time timestamp
         )
         USING iceberg
-        PARTITIONED BY (days(event_time))
+        PARTITIONED BY (event_date)
         """
         spark.sql(create_sql)
         print(f"[Iceberg] Table {FULL_TABLE_NAME} is ready.")
     except Exception as e:
         print(f"[Iceberg] Init failed: {e}")
         traceback.print_exc()
+        sys.exit(1) # Dừng chương trình nếu không tạo được bảng
 
 ensure_iceberg_table()
 
@@ -115,16 +113,16 @@ df_kafka = spark.readStream \
     .load()
 
 # ================= TRANSFORM (BRONZE LOGIC) =================
-# Parse JSON -> Cast Timestamp -> Add Ingestion Time
 df_parsed = df_kafka.selectExpr("CAST(value AS STRING) as json_string") \
     .select(from_json(col("json_string"), SCHEMA).alias("data")) \
     .select("data.*")
 
-# Chuẩn hóa dữ liệu cho khớp với bảng Iceberg
+# SỬA ĐỔI: Tạo cột event_date từ event_time để phục vụ Partition
 df_transformed = df_parsed \
     .withColumn("event_time", to_timestamp(col("timestamp"))) \
+    .withColumn("event_date", to_date(col("timestamp"))) \
     .withColumn("ingest_time", current_timestamp()) \
-    .drop("timestamp") # Bỏ cột string gốc, dùng cột timestamp đã cast
+    .drop("timestamp")
 
 # ================= WRITE STREAM (FOREACH BATCH) =================
 def process_batch(batch_df, batch_id):
@@ -134,10 +132,9 @@ def process_batch(batch_df, batch_id):
     print(f"Processing Batch ID: {batch_id} | Records: {batch_df.count()}")
     
     try:
-        # Repartition để tránh lỗi Small Files (quan trọng với Iceberg)
-        # Sắp xếp theo partition key để ghi hiệu quả hơn
+        # Sort theo partition key để tối ưu ghi file
         batch_df.repartition(2) \
-                .sortWithinPartitions("event_time") \
+                .sortWithinPartitions("event_date") \
                 .writeTo(FULL_TABLE_NAME) \
                 .append()
                 
