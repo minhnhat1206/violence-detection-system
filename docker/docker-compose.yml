@@ -334,20 +334,7 @@ services:
       - ../config/trino/worker2/etc:/etc/trino
     networks:
       - violence-detection-net
-  trino-api:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.trino-api
-    container_name: trino-api
-    ports:
-      - "3000:3000"            
-    env_file:
-      - ../backend/.env      
-    depends_on:
-      - trino-coordinator   
-    networks:
-      - violence-detection-net
-    restart: unless-stopped
+
 
   rag_chatbot:
     build: 
