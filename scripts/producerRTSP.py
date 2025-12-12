@@ -8,7 +8,7 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 # ================= CẤU HÌNH =================
-API_URL = "http://103.78.3.32:8000"
+API_URL = "http://viomobilenet_api:8000"
 # Lưu ý: Kafka Broker thường không có "http://", chỉ là "host:port"
 KAFKA_BROKER = "kafka:9092" 
 KAFKA_TOPIC = "urban-safety-alerts"
