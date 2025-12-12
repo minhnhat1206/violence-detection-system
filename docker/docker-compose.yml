@@ -26,7 +26,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
-
+    networks:
+      - violence-detection-net
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
@@ -38,7 +39,8 @@ services:
       KAFKA_CLUSTERS_0_ZOOKEEPER: ""              
     depends_on:
       - kafka
-
+    networks:
+      - violence-detection-net
     # --- MinIO ---
   minio:
     image: dataguy16/minio:latest
@@ -51,7 +53,8 @@ services:
       - MINIO_ROOT_PASSWORD=mypassword
     volumes:
       - minio_data:/bitnami/minio/data
-
+    networks:
+      - violence-detection-net
     restart: unless-stopped
 
   # --- MinIO Client ---
@@ -71,7 +74,8 @@ services:
         mc anonymous set download minio/rtsp-frames || true
         tail -f /dev/null
       "
-
+    networks:
+      - violence-detection-net
 
 
 
@@ -93,7 +97,8 @@ services:
       - ../data/playlist:/app/data/playlist
     # depends_on:
     #   - mediamtx
-
+    networks:
+      - violence-detection-net
     restart: on-failure
     # command: sh -c "tail -f /dev/null"
 
@@ -111,7 +116,8 @@ services:
       MTX_PROTOCOLS: tcp
       RTSP_AUTH_PASS: ""
 
-
+    networks:
+      - violence-detection-net
     restart: unless-stopped
     volumes:
       - ../config/mediamtx/mediamtx.yml:/mediamtx.yml
@@ -129,7 +135,8 @@ services:
     environment:
       MINIO_ENDPOINT: minio:9000
       KAFKA_BROKER: kafka:9092
-
+    networks:
+      - violence-detection-net
     volumes:
       - ../scripts:/app/scripts
       - ../data:/app/data
@@ -150,7 +157,8 @@ services:
     depends_on:
       - kafka
       - producer # Đảm bảo producer đã gửi dữ liệu
-
+    networks:
+      - violence-detection-net
     volumes:
       - ../scripts:/app/scripts
       - ../data:/app/data
@@ -170,7 +178,8 @@ services:
       SPARK_USER: sparkuser
     ports:
       - "8080:8080" # Spark Web UI
-
+    networks:
+      - violence-detection-net
     volumes:
       # Mount script PySpark
       - ../scripts:/opt/bitnami/spark/scripts
@@ -187,7 +196,8 @@ services:
       SPARK_MASTER_URL: spark://spark-master:7077
       SPARK_WORKER_CORES: 1
       SPARK_WORKER_MEMORY: 1g
-
+    networks:
+      - violence-detection-net
     volumes:
       - ../scripts:/opt/bitnami/spark/scripts
       - ../config/spark:/opt/bitnami/spark/conf/
@@ -206,7 +216,8 @@ services:
       - "3307:3306"
     volumes:
       - mysql-data:/var/lib/mysql
-
+    networks:
+      - violence-detection-net
 
   hive-metastore:
     build:
@@ -228,7 +239,8 @@ services:
       - ../config/hive_metastore/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
     depends_on:
       - mysql
-
+    networks:
+      - violence-detection-net
 
   prometheus:
     image: prom/prometheus:latest
@@ -245,7 +257,8 @@ services:
     depends_on:
       - spark-master
       - spark-worker
-
+    networks:
+      - violence-detection-net
 
   grafana:
     image: grafana/grafana:latest
@@ -265,7 +278,8 @@ services:
     volumes:
       - grafana-storage:/var/lib/grafana
       - ../config/grafana/provisioning:/etc/grafana/provisioning
-
+    networks:
+      - violence-detection-net
 
   node-exporter:
     image: prom/node-exporter:latest
@@ -281,7 +295,8 @@ services:
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host)($$|/)'
     restart: unless-stopped
-
+    networks:
+      - violence-detection-net
 
   # ---- Trino -----
   trino-coordinator:
@@ -295,7 +310,8 @@ services:
       - "8081:8080"
     volumes:
       - ../config/trino/coordinator/etc:/etc/trino
-
+    networks:
+      - violence-detection-net
 
 
   trino-worker-1:
@@ -304,7 +320,8 @@ services:
     hostname: trino-worker-1
     volumes:
       - ../config/trino/worker1/etc:/etc/trino
-
+    networks:
+      - violence-detection-net
 
   trino-worker-2:
     image: trino-with-s3a
@@ -312,7 +329,8 @@ services:
     hostname: trino-worker-2
     volumes:
       - ../config/trino/worker2/etc:/etc/trino
-
+    networks:
+      - violence-detection-net
 
 
   # rag_chatbot:
