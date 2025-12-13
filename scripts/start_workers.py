@@ -5,26 +5,27 @@ import os
 
 # ================= CẤU HÌNH =================
 
-# Thay thế bằng địa chỉ IP Host thực tế (ví dụ: 192.168.0.200)
-# API phải được gọi bằng IP Host vì script này chạy bên ngoài Docker
+# Thay thế bằng địa chỉ IP Host thực tế của bạn
 API_HOST_IP = "192.168.0.200"
 API_PORT = 8000
 METADATA_FILE = "../data/metadata/camera_registry.csv"
 
-# Địa chỉ API hoàn chỉnh
+# gioi han so luong camera chay AI
+TOTAL_TO_START = 3
+
 API_URL = f"http://{API_HOST_IP}:{API_PORT}"
 
 # ================= HÀM XỬ LÝ =================
 
 def load_camera_registry(csv_path):
-    """Đọc camera ID và RTSP URL từ file CSV."""
+    """Doc camera ID va RTSP URL tu file CSV."""
     registry = []
-    # Dùng os.path.dirname(__file__) để xác định đường dẫn tương đối
-    full_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), csv_path)
+    # lay duong dan tuyet doi den file csv
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    full_path = os.path.join(current_dir, csv_path)
     
     if not os.path.exists(full_path):
         print(f"LOI: Khong tim thay file metadata tai {full_path}")
-        print("Vui long dam bao da chay metadataRTSP.py truoc.")
         return registry
 
     try:
@@ -40,57 +41,50 @@ def load_camera_registry(csv_path):
         print(f"LOI khi doc CSV: {e}")
         return []
 
-def start_all_workers(registry):
-    """Gửi yêu cầu POST đến API để khởi động từng Worker."""
+def start_selected_workers(registry):
+    """Gui yeu cau POST den API de khoi dong tung Worker."""
     
-    TOTAL_CAMERAS = 5
     success_count = 0
+    total_requested = len(registry)
     
-    print(f"--- KICH HOAT {TOTAL_CAMERAS} WORKER AI QUA API ---")
+    print(f"--- KICH HOAT {total_requested} WORKER AI QUA API ---")
     print(f"Gui den API: {API_URL}")
     print("-------------------------------------------------")
     
     for cam in registry:
         cam_id = cam['camera_id']
         rtsp_url = cam['rtsp_url']
-        
-        # URL API đầy đủ
         endpoint = f"{API_URL}/camera/start"
         
-        # Tham số POST: camera_id và rtsp_url
         params = {
             "camera_id": cam_id,
             "rtsp_url": rtsp_url
         }
         
         try:
-            # Dùng timeout để tránh bị treo
-            response = requests.post(endpoint, params=params, timeout=5)
+            response = requests.post(endpoint, params=params, timeout=10)
             
             if response.status_code == 200:
                 result = response.json()
                 print(f"[SUCCESS] {cam_id}: STARTED (PID: {result.get('pid', 'N/A')})")
                 success_count += 1
             else:
-                print(f"[ERROR] {cam_id}: LOI - API tra ve Status {response.status_code}")
+                print(f"[ERROR] {cam_id}: LOI - Status {response.status_code}")
                 
         except requests.exceptions.RequestException as e:
-            # Loai bo icon/emoji, thay bang [ERROR]
             print(f"[ERROR] {cam_id}: LOI KET NOI - {e}")
             
     print("-------------------------------------------------")
-    # Su dung bien TOTAL_CAMERAS
-    print(f"TONG KET: {success_count}/{TOTAL_CAMERAS} Workers duoc kich hoat.")
-    
-    if success_count < TOTAL_CAMERAS:
-        print("CHU Y: Neu nhieu Worker that bai, co the Worker Process dang bi loi GPU hoac loi ket noi RTSP noi bo.")
-
+    print(f"TONG KET: {success_count}/{total_requested} Workers duoc kich hoat.")
 
 if __name__ == '__main__':
     requests.packages.urllib3.disable_warnings()
     
-    camera_list = load_camera_registry(METADATA_FILE)
-    if camera_list:
-        start_all_workers(camera_list)
+    full_registry = load_camera_registry(METADATA_FILE)
+    
+    if full_registry:
+        selected_cameras = full_registry[:TOTAL_TO_START]
+        
+        start_selected_workers(selected_cameras)
     else:
         print("Khong co camera nao duoc load. Da dung.")

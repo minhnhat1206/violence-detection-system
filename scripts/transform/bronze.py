@@ -44,10 +44,8 @@ SCHEMA = StructType([
 # ================= SPARK SESSION SETUP =================
 spark = SparkSession.builder \
     .appName("BronzeLayer_Ingestion") \
-    .config("spark.jars.packages",
-            "org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.2,"
-            "org.apache.hadoop:hadoop-aws:3.3.4,"
-            "org.apache.iceberg:iceberg-spark-runtime-3.4_2.12:1.3.0") \
+    .config("spark.sql.extensions",
+            "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
     .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
     .config(f"spark.sql.catalog.{CATALOG_NAME}", "org.apache.iceberg.spark.SparkCatalog") \
     .config(f"spark.sql.catalog.{CATALOG_NAME}.type", "hive") \

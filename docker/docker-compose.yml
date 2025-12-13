@@ -194,8 +194,8 @@ services:
     environment:
       SPARK_MODE: worker
       SPARK_MASTER_URL: spark://spark-master:7077
-      SPARK_WORKER_CORES: 1
-      SPARK_WORKER_MEMORY: 1g
+      SPARK_WORKER_CORES: 2
+      SPARK_WORKER_MEMORY: 3g
     networks:
       - violence-detection-net
     volumes:
@@ -310,6 +310,8 @@ services:
       - "8081:8080"
     volumes:
       - ../config/trino/coordinator/etc:/etc/trino
+    mem_limit: 1g
+    cpus: 0.5
     networks:
       - violence-detection-net
 
@@ -320,6 +322,8 @@ services:
     hostname: trino-worker-1
     volumes:
       - ../config/trino/worker1/etc:/etc/trino
+    mem_limit: 512m
+    cpus: 0.5
     networks:
       - violence-detection-net
 
@@ -329,6 +333,8 @@ services:
     hostname: trino-worker-2
     volumes:
       - ../config/trino/worker2/etc:/etc/trino
+    mem_limit: 512m
+    cpus: 0.5
     networks:
       - violence-detection-net
 
