@@ -1,156 +1,153 @@
-import sys
-import traceback
+# scripts/transform/bronze.py
+import time, traceback, threading
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, from_json, to_timestamp, current_timestamp, to_date
-from pyspark.sql.types import (
-    StructType, StructField, StringType, DoubleType, 
-    BooleanType, IntegerType, FloatType
-)
+from pyspark.sql.types import StructType, StructField, StringType, DoubleType, BooleanType
 
-# ================= CẤU HÌNH (CONFIG) =================
+from prometheus_client import start_http_server, Counter, Gauge
+
+# ----- Metrics -----
+PROM_PORT = 8005
+PROCESSED = Counter("bronze_records_total","Total bronze records")
+BATCH_DUR = Gauge("bronze_batch_duration_seconds","Batch duration (s)")
+
+# ----- Config -----
 KAFKA_BROKER = "kafka:9092"
 KAFKA_TOPIC = "urban-safety-alerts"
 
-# Lakehouse Config
-CATALOG_NAME = "iceberg"
-NAMESPACE = "default"
-TABLE_NAME = "bronzeViolence"  # Đổi tên bảng để tránh conflict schema cũ
-FULL_TABLE_NAME = f"{CATALOG_NAME}.{NAMESPACE}.{TABLE_NAME}"
+CATALOG = "iceberg"
+NS = "default"
+BRONZE_TBL = f"{CATALOG}.{NS}.bronzeViolence"
 
-# Đường dẫn (MinIO/S3)
-WAREHOUSE_PATH = "s3a://warehouse/"
-CHECKPOINT_PATH = "s3a://checkpoint/bronzeViolence/"
+WAREHOUSE = "s3a://warehouse/"
+CHECKPOINT = "s3a://checkpoint/bronzeViolence/"
 
-# ================= SCHEMA DEFINITION =================
+# Tunables (thử tăng/decrease tuỳ host)
+MAX_OFFSETS_PER_TRIGGER = 2000   # GIỚI HẠN ingest; giảm nếu crash
+MICRO_BATCH_SECONDS = 120       # tăng để giảm metadata churn
+COALESCE_FILES = 2              # files per batch, không để 1 nếu metadata heavy
+EXPIRE_EVERY_N_BATCH = 5        # clean snapshots mỗi N batch
+TARGET_FILE_SIZE = 128 * 1024 * 1024  # 128MB
+
+# ----- Schema -----
 SCHEMA = StructType([
-    StructField("camera_id", StringType(), True),
-    StructField("city", StringType(), True),   
-    StructField("district", StringType(), True),     
-    StructField("ward", StringType(), True),     
-    StructField("street", StringType(), True),     
-    StructField("latitude", DoubleType(), True),
-    StructField("longitude", DoubleType(), True),
-    StructField("rtsp_url", StringType(), True),     
-    StructField("risk_level", StringType(), True),     
-    StructField("timestamp", StringType(), True),
-    StructField("ai_timestamp", StringType(), True),
-    StructField("is_violent", BooleanType(), True),
-    StructField("score", DoubleType(), True),
-    StructField("fps", DoubleType(), True),
-    StructField("latency_ms", DoubleType(), True),
-    StructField("evidence_url", StringType(), True)
+    StructField("camera_id", StringType()),
+    StructField("city", StringType()),
+    StructField("district", StringType()),
+    StructField("ward", StringType()),
+    StructField("street", StringType()),
+    StructField("latitude", DoubleType()),
+    StructField("longitude", DoubleType()),
+    StructField("rtsp_url", StringType()),
+    StructField("risk_level", StringType()),
+    StructField("timestamp", StringType()),
+    StructField("ai_timestamp", StringType()),
+    StructField("is_violent", BooleanType()),
+    StructField("score", DoubleType()),
+    StructField("fps", DoubleType()),
+    StructField("latency_ms", DoubleType()),
+    StructField("evidence_url", StringType())
 ])
 
-# ================= SPARK SESSION SETUP =================
-spark = SparkSession.builder \
-    .appName("BronzeLayer_Ingestion") \
-    .config("spark.sql.extensions",
-            "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
-    .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
-    .config(f"spark.sql.catalog.{CATALOG_NAME}", "org.apache.iceberg.spark.SparkCatalog") \
-    .config(f"spark.sql.catalog.{CATALOG_NAME}.type", "hive") \
-    .config(f"spark.sql.catalog.{CATALOG_NAME}.uri", "thrift://hive-metastore:9083") \
-    .config(f"spark.sql.catalog.{CATALOG_NAME}.warehouse", WAREHOUSE_PATH) \
-    .config("spark.hadoop.fs.s3a.endpoint", "http://minio:9000") \
-    .config("spark.hadoop.fs.s3a.access.key", "minio") \
-    .config("spark.hadoop.fs.s3a.secret.key", "mypassword") \
-    .config("spark.hadoop.fs.s3a.path.style.access", "true") \
-    .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
-    .getOrCreate()
+# ----- Spark session -----
+spark = (
+    SparkSession.builder
+    .appName("BronzeLayer_Realtime_Resilient")
+    .config("spark.sql.extensions","org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
+    .config(f"spark.sql.catalog.{CATALOG}","org.apache.iceberg.spark.SparkCatalog")
+    .config(f"spark.sql.catalog.{CATALOG}.type","hive")
+    .config(f"spark.sql.catalog.{CATALOG}.uri","thrift://hive-metastore:9083")
+    .config(f"spark.sql.catalog.{CATALOG}.warehouse", WAREHOUSE)
 
+    # IO / files
+    .config("spark.sql.files.maxRecordsPerFile","200000")
+    .config("spark.sql.iceberg.write.target-file-size-bytes", str(TARGET_FILE_SIZE))
+
+    # conservative shuffle/partitions for small worker
+    .config("spark.sql.shuffle.partitions","2")
+    .config("spark.default.parallelism","2")
+
+    # memory tuning (tweak if you change worker mem)
+    .config("spark.memory.fraction","0.7")
+    .config("spark.memory.storageFraction","0.3")
+
+    .getOrCreate()
+)
 spark.sparkContext.setLogLevel("WARN")
 
-# ================= KHỞI TẠO BẢNG ICEBERG (DDL) =================
-def ensure_iceberg_table():
-    try:
-        spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {CATALOG_NAME}.{NAMESPACE}")
-        
-        # SỬA ĐỔI: Thêm cột event_date và Partition theo cột này
-        # Loại bỏ days(event_time) gây lỗi
-        create_sql = f"""
-        CREATE TABLE IF NOT EXISTS {FULL_TABLE_NAME} (
-            camera_id string,
-            city string,
-            district string,
-            ward string,
-            street string,
-            latitude double,
-            longitude double,
-            rtsp_url string,
-            risk_level string,
-            event_time timestamp,
-            event_date date, 
-            ai_timestamp string,
-            is_violent boolean,
-            score double,
-            fps double,
-            latency_ms double,
-            evidence_url string,
-            ingest_time timestamp
-        )
-        USING iceberg
-        PARTITIONED BY (event_date)
-        """
-        spark.sql(create_sql)
-        print(f"[Iceberg] Table {FULL_TABLE_NAME} is ready.")
-    except Exception as e:
-        print(f"[Iceberg] Init failed: {e}")
-        traceback.print_exc()
-        sys.exit(1) # Dừng chương trình nếu không tạo được bảng
+# ----- ensure table -----
+spark.sql(f"""
+CREATE TABLE IF NOT EXISTS {BRONZE_TBL} (
+    camera_id string, city string, district string, ward string, street string,
+    latitude double, longitude double, rtsp_url string, risk_level string,
+    event_time timestamp, event_date date, ai_timestamp string,
+    is_violent boolean, score double, fps double, latency_ms double,
+    evidence_url string, ingest_time timestamp
+) USING iceberg PARTITIONED BY (event_date)
+""")
 
-ensure_iceberg_table()
+# ----- metrics server -----
+def _start_metrics(): start_http_server(PROM_PORT)
+threading.Thread(target=_start_metrics, daemon=True).start()
 
-# ================= READ STREAM (KAFKA) =================
-print(f"Reading stream from {KAFKA_BROKER} topic: {KAFKA_TOPIC}")
-
-df_kafka = spark.readStream \
-    .format("kafka") \
-    .option("kafka.bootstrap.servers", KAFKA_BROKER) \
-    .option("subscribe", KAFKA_TOPIC) \
-    .option("startingOffsets", "earliest") \
-    .load()
-
-# ================= TRANSFORM (BRONZE LOGIC) =================
-df_parsed = df_kafka.selectExpr("CAST(value AS STRING) as json_string") \
-    .select(from_json(col("json_string"), SCHEMA).alias("data")) \
-    .select("data.*")
-
-# SỬA ĐỔI: Tạo cột event_date từ event_time để phục vụ Partition
-df_transformed = df_parsed \
-    .withColumn("event_time", to_timestamp(col("timestamp"))) \
-    .withColumn("event_date", to_date(col("timestamp"))) \
-    .withColumn("ingest_time", current_timestamp()) \
-    .drop("timestamp")
-
-# ================= WRITE STREAM (FOREACH BATCH) =================
+# ----- batch processor -----
 def process_batch(batch_df, batch_id):
-    if batch_df.isEmpty():
-        return
-    
-    print(f"Processing Batch ID: {batch_id} | Records: {batch_df.count()}")
-    
+    start = time.time()
     try:
-        # Sort theo partition key để tối ưu ghi file
-        batch_df.repartition(2) \
-                .sortWithinPartitions("event_date") \
-                .writeTo(FULL_TABLE_NAME) \
-                .append()
-                
-        print(f"   -> Written to {FULL_TABLE_NAME}")
+        if batch_df.isEmpty():
+            return
+
+        n = batch_df.count()
+        print(f"[BRONZE] Batch {batch_id} records={n}")
+
+        # safe write: coalesce small (not 1), append to Iceberg
+        batch_df.coalesce(COALESCE_FILES) \
+                .withColumn("event_time", to_timestamp(col("timestamp"))) \
+                .withColumn("event_date", to_date(col("timestamp"))) \
+                .withColumn("ingest_time", current_timestamp()) \
+                .drop("timestamp") \
+                .writeTo(BRONZE_TBL).append()
+
+        # expire snapshots & remove orphan files occasionally
+        if batch_id % EXPIRE_EVERY_N_BATCH == 0:
+            try:
+                spark.sql(f"CALL {CATALOG}.system.expire_snapshots(table => '{BRONZE_TBL}', retain_last => 2)")
+            except Exception as e:
+                print("[BRONZE] expire_snapshots error:", e)
+            try:
+                spark.sql(f"CALL {CATALOG}.system.remove_orphan_files(table => '{BRONZE_TBL}', older_than => TIMESTAMP '1970-01-01 00:00:00')")
+            except Exception as e:
+                print("[BRONZE] remove_orphan_files error:", e)
+
+        # metrics
+        PROCESSED.inc(n)
+        BATCH_DUR.set(time.time() - start)
+
     except Exception as e:
-        print(f"   -> ERROR writing batch {batch_id}: {e}")
+        print("[BRONZE] ERROR writing batch:", e)
         traceback.print_exc()
 
-# Chạy Streaming Query
-query = df_transformed.writeStream \
-    .outputMode("append") \
-    .foreachBatch(process_batch) \
-    .option("checkpointLocation", CHECKPOINT_PATH) \
-    .trigger(processingTime="10 seconds") \
-    .start()
+# ----- stream read with maxOffsetsPerTrigger -----
+kafka_df = (
+    spark.readStream.format("kafka")
+    .option("kafka.bootstrap.servers", KAFKA_BROKER)
+    .option("subscribe", KAFKA_TOPIC)
+    .option("startingOffsets", "latest")
+    .option("maxOffsetsPerTrigger", str(MAX_OFFSETS_PER_TRIGGER))
+    .load()
+)
 
-try:
-    query.awaitTermination()
-except KeyboardInterrupt:
-    print("Stopping query...")
-    query.stop()
+parsed = (kafka_df
+    .selectExpr("CAST(value AS STRING) as json")
+    .select(from_json(col("json"), SCHEMA).alias("d"))
+    .select("d.*")
+)
+
+query = (parsed.writeStream
+    .foreachBatch(process_batch)
+    .option("checkpointLocation", CHECKPOINT)
+    .trigger(processingTime=f"{MICRO_BATCH_SECONDS} seconds")
+    .start()
+)
+
+query.awaitTermination()

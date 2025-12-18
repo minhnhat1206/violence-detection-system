@@ -11,17 +11,19 @@ scrape_configs:
     static_configs:
       - targets: ['node-exporter:9100']
 
-  - job_name: 'spark-master'
+  # JOB GIAO DIEN SPARK UI (Lay thong so HE THONG Spark)
+  - job_name: 'spark-master-ui'
     metrics_path: /metrics/master/
     static_configs:
       - targets: ['spark-master:8080']
 
-  - job_name: 'spark-worker'
+  # JOB GIAO DIEN SPARK WORKER (Lay thong so WORKER)
+  - job_name: 'spark-worker-ui'
     metrics_path: /metrics/worker/
     static_configs:
       - targets: ['spark-worker:8081']
 
-  - job_name: 'spark-driver'
-    metrics_path: /metrics
+  # JOB CHINH: JOB BRONZE LAYER (Lay metrics tu Python/prometheus_client)
+  - job_name: 'spark-bronze' 
     static_configs:
-      - targets: ['spark-master:8000']
+      - targets: ['spark-master:8005']

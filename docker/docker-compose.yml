@@ -95,11 +95,10 @@ services:
       - ../pids:/app/pids
       - ../data/raw/RWF-2000:/app/data/raw/RWF-2000
       - ../data/playlist:/app/data/playlist
-    # depends_on:
-    #   - mediamtx
+      - ../scripts/:/app/
     networks:
       - violence-detection-net
-    restart: on-failure
+    restart: "no"
     # command: sh -c "tail -f /dev/null"
 
   # --- Mediamtx (RTSP Server) ---
@@ -128,10 +127,6 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.producer
     container_name: producer
-    # depends_on:
-    #   - kafka
-    #   - minio
-    #   - rtsp_pusher
     environment:
       MINIO_ENDPOINT: minio:9000
       KAFKA_BROKER: kafka:9092
@@ -141,27 +136,6 @@ services:
       - ../scripts:/app/scripts
       - ../data:/app/data
     restart: on-failure
-
-  # --- Inference Worker ---
-  inference_worker:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.producer
-    container_name: inference_worker
-    restart: always
-    command: python /app/scripts/inference_worker.py
-    environment:
-      PYTHONUNBUFFERED: 1
-      MINIO_ENDPOINT: minio:9000
-      KAFKA_BROKER: kafka:9092
-    depends_on:
-      - kafka
-      - producer # Đảm bảo producer đã gửi dữ liệu
-    networks:
-      - violence-detection-net
-    volumes:
-      - ../scripts:/app/scripts
-      - ../data:/app/data
 
   spark-master:
     build:
@@ -176,16 +150,25 @@ services:
       HOME: /tmp 
       SPARK_HOME: /opt/bitnami/spark
       SPARK_USER: sparkuser
+      # - SPARK_DRIVER_MEMORY=4g  
+      # - SPARK_EXECUTOR_MEMORY=2g
     ports:
       - "8080:8080" # Spark Web UI
+      - "8005:8005"
     networks:
       - violence-detection-net
     volumes:
-      # Mount script PySpark
-      - ../scripts:/opt/bitnami/spark/scripts
-      - ../config/spark:/opt/bitnami/spark/conf/
+    - ../scripts:/opt/bitnami/spark/scripts
+    - ../config/spark:/opt/bitnami/spark/conf
     restart: always
+    deploy: 
+          resources:
+            limits:
+              memory: 4g
 
+  # =========================
+  # Spark Worker
+  # =========================
   spark-worker:
     build:
       context: ..
@@ -195,15 +178,20 @@ services:
       SPARK_MODE: worker
       SPARK_MASTER_URL: spark://spark-master:7077
       SPARK_WORKER_CORES: 2
-      SPARK_WORKER_MEMORY: 3g
-    networks:
-      - violence-detection-net
+      SPARK_WORKER_MEMORY: 4g
     volumes:
-      - ../scripts:/opt/bitnami/spark/scripts
-      - ../config/spark:/opt/bitnami/spark/conf/
+    - ../scripts:/opt/bitnami/spark/scripts
+    - ../config/spark:/opt/bitnami/spark/conf
     depends_on:
       - spark-master
+    networks:
+      - violence-detection-net
     restart: always
+    deploy: 
+        resources:
+          limits:
+            memory: 6g
+
     
   # ---- Hive metastore -----
   mysql:

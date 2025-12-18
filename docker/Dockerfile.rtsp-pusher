@@ -10,8 +10,8 @@ RUN apt-get update && \
 # Thiết lập thư mục làm việc
 WORKDIR /app
 
-COPY ../scripts/simulateRTSP.py /app/simulateRTSP.py
-RUN pip install --no-cache-dir natsort
+# COPY ../scripts/simulateRTSP.py /app/simulateRTSP.py
+RUN pip install --no-cache-dir natsort requests
 
 
 # Lệnh mặc định sẽ chạy script start

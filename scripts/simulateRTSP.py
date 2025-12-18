@@ -2,225 +2,339 @@ import os
 import random
 import subprocess
 import time
-import threading
-import glob
-from natsort import natsorted 
+import csv
+import requests
+from natsort import natsorted
 
-# ================= CẤU HÌNH HỆ THỐNG =================
-# Đường dẫn tới thư mục video (Bạn hãy sửa lại cho đúng máy bạn)
-# VIOLENCE_DIR = "../data/raw/RWF-2000/norTrain/Fight" 
-# NON_VIOLENCE_DIR = "../data/raw/RWF-2000/norTrain/NonFight"
-
-VIOLENCE_DIR = "/app/data/raw/RWF-2000/norTrain/Fight" 
+# ================= CẤU HÌNH =================
+VIOLENCE_DIR = "/app/data/raw/RWF-2000/norTrain/Fight"
 NON_VIOLENCE_DIR = "/app/data/raw/RWF-2000/norTrain/NonFight"
+PLAYLIST_DIR = "/app/data/playlist"
+METADATA_FILE = "/app/data/metadata/camera_registry.csv"
 
-# Đường dẫn tới thư mục chứa các file playlist được tạo ra (Mới)
-PLAYLIST_DIR = "/app/data/playlist" 
+API_HOST_IP = "192.168.0.200"
+API_PORT = 8000
+API_URL = f"http://{API_HOST_IP}:{API_PORT}"
 
-# Cấu hình RTSP Server
-# RTSP_SERVER_URL = "rtsp://localhost:8554"
-RTSP_SERVER_URL = "rtsp://mediamtx:8554"
+TOTAL_TO_START = 5
+SIMULATION_DURATION_MINUTES = 30
 
-
-
-# Số lượng camera muốn giả lập
-NUM_CAMERAS = 16
-
-# Thời lượng demo (tạo playlist cho bao nhiêu phút?)
-SIMULATION_DURATION_MINUTES = 60 
-
-# ================= XỬ LÝ DỮ LIỆU =================
+# ================= VIDEO MANAGER =================
 
 class VideoManager:
     def __init__(self, v_dir, nv_dir):
         self.v_events = self._load_and_group_videos(v_dir)
         self.nv_events = self._load_and_group_videos(nv_dir)
-        print(f"Loaded {len(self.v_events)} violence events and {len(self.nv_events)} non-violence events.")
+        print(f"[*] Loaded {len(self.v_events)} violence & {len(self.nv_events)} non-violence events")
 
     def _load_and_group_videos(self, directory):
-        """
-        Nhóm các video rời rạc thành bộ. 
-        Ví dụ: 'abc_0.avi', 'abc_1.avi' -> Key: 'abc', Value: ['path/abc_0.avi', 'path/abc_1.avi']
-        """
         groups = {}
-        # Lấy tất cả file video (avi, mp4...)
-        files = [f for f in os.listdir(directory) if f.endswith(('.avi', '.mp4', '.mkv'))]
-        
-        for f in files:
-            # Giả định tên file là: ID_Index.avi (VD: nVdn1krnTCQ_0.avi)
-            try:
-                # Tách tên để lấy ID (phần trước dấu _ cuối cùng)
-                base_name = "_".join(f.split('_')[:-1])
-                
-                # --- SỬA LỖI QUAN TRỌNG: Chuyển sang đường dẫn tuyệt đối (Absolute Path) ---
-                # Điều này giải quyết xung đột khi FFmpeg đọc file playlist được đặt ở thư mục khác.
-                full_path = os.path.abspath(os.path.join(directory, f))
-                # -------------------------------------------------------------------------
-                
-                if base_name not in groups:
-                    groups[base_name] = []
-                groups[base_name].append(full_path)
-            except:
+        if not os.path.exists(directory):
+            print(f"[!] Warning: Directory {directory} not found")
+            return []
+        for f in os.listdir(directory):
+            if not f.endswith(('.mp4', '.avi')):
                 continue
-        
-        # Sắp xếp các file trong từng group theo thứ tự 0, 1, 2... (Sử dụng natsort để sort số tự nhiên)
-        final_events = []
-        for key in groups:
-            sorted_files = natsorted(groups[key])
-            final_events.append(sorted_files)
-            
-        return final_events # List các List paths
+            base = "_".join(f.split('_')[:-1])
+            groups.setdefault(base, []).append(os.path.join(directory, f))
+        return [natsorted(v) for v in groups.values()]
 
-    def get_random_event(self, is_violence=False):
-        source = self.v_events if is_violence else self.nv_events
-        if not source: return []
-        return random.choice(source)
+    def random_event(self, violence=False):
+        source = self.v_events if violence else self.nv_events
+        return random.choice(source) if source else []
 
-# ================= GIẢ LẬP CAMERA =================
+# ================= CAMERA SIM =================
 
 class CameraSimulator:
-    def __init__(self, cam_id, video_manager, risk_level):
+    def __init__(self, cam_id, rtsp_url, vm):
         self.cam_id = cam_id
-        self.vm = video_manager
-        self.risk_level = risk_level # 'high', 'medium', 'low'
-        
-        # --- SỬA ĐỔI: Định nghĩa đường dẫn file playlist mới ---
-        playlist_filename = f"playlist_cam_{cam_id}.txt"
-        self.playlist_file = os.path.join(PLAYLIST_DIR, playlist_filename)
-        
-        self.rtsp_url = f"{RTSP_SERVER_URL}/cam{cam_id:02d}"
+        self.rtsp_url = rtsp_url
+        self.vm = vm
+        self.playlist = f"{PLAYLIST_DIR}/playlist_{cam_id}.txt"
 
-    def generate_scenario(self):
-        """Tạo kịch bản phát sóng dựa trên mức độ rủi ro"""
-        print(f"Generating scenario for Camera {self.cam_id} ({self.risk_level})...")
-        
-        # Cấu hình xác suất dựa trên Risk Level
-        if self.risk_level == 'high':
-            # Hotspot: Cứ 3-5 phút lại có biến
-            avg_safe_duration = (3 * 60, 5 * 60) 
-            violence_prob = 1.0 # Chắc chắn có violence xen kẽ
-        elif self.risk_level == 'medium':
-            # Public: 10-15 phút mới có biến
-            avg_safe_duration = (10 * 60, 15 * 60)
-            violence_prob = 0.8
-        else: # low
-            # Safe zone: Gần như không có, hoặc 30-45p mới có
-            avg_safe_duration = (30 * 60, 45 * 60)
-            violence_prob = 0.3
-
+    def generate_playlist(self):
         playlist = []
-        current_time = 0
-        target_time = SIMULATION_DURATION_MINUTES * 60
+        current = 0
+        target = SIMULATION_DURATION_MINUTES * 60
 
-        while current_time < target_time:
-            # 1. Giai đoạn Bình yên (Non-violence)
-            safe_time_target = random.randint(*avg_safe_duration)
-            segment_time = 0
-            while segment_time < safe_time_target:
-                event = self.vm.get_random_event(is_violence=False)
-                playlist.extend(event)
-                segment_time += len(event) * 5 # Giả định mỗi clip 5s
-            current_time += segment_time
+        while current < target:
+            safe = random.randint(300, 600)
+            t = 0
+            while t < safe:
+                ev = self.vm.random_event(False)
+                if not ev: break
+                playlist.extend(ev)
+                t += len(ev) * 5
+            current += t
 
-            # 2. Giai đoạn Bạo lực (Violence) - Nếu trúng xác suất
-            if random.random() < violence_prob:
-                # Mục tiêu: Tạo ra vụ ẩu đả kéo dài khoảng 20s - 60s
-                violence_duration_target = random.randint(20, 60)
-                v_time = 0
-                while v_time < violence_duration_target:
-                    event = self.vm.get_random_event(is_violence=True)
-                    playlist.extend(event) # Thêm cả bộ (0, 1, 2...)
-                    v_time += len(event) * 5
-                current_time += v_time
+            if random.random() < 0.5:
+                ev = self.vm.random_event(True)
+                if ev:
+                    playlist.extend(ev)
+                    current += len(ev) * 5
 
-        # Ghi ra file playlist đúng format FFmpeg
-        with open(self.playlist_file, 'w') as f:
-            for video_path in playlist:
-                # Bây giờ video_path đã là đường dẫn tuyệt đối, rất an toàn
-                clean_path = video_path.replace('\\', '/')
-                f.write(f"file '{clean_path}'\n")
+        with open(self.playlist, "w") as f:
+            for p in playlist:
+                f.write("file '{}'\n".format(p.replace("\\", "/")))
 
-    def start_streaming(self):
-        """Gọi FFmpeg để đẩy stream"""
-        # Đã sửa đổi để dùng H.264 và TCP (giúp giải quyết lỗi I/O Timeout trước đó)
+    def start(self):
         cmd = [
-            'ffmpeg',
-            '-re', 
-            '-f', 'concat',
-            '-safe', '0',
-            '-i', self.playlist_file,
-            
-            # Cấu hình Encode H.264 để stream ổn định
-            '-c:v', 'libx264',       
-            '-preset', 'ultrafast',  
-            '-tune', 'zerolatency',  
-            '-b:v', '1000k',         
-            '-f', 'rtsp',
-            '-rtsp_transport', 'tcp', # Ép dùng TCP
-            
+            "ffmpeg", "-re",
+            "-f", "concat", "-safe", "0",
+            "-i", self.playlist,
+            "-c", "copy",
+            "-f", "rtsp", "-rtsp_transport", "tcp",
             self.rtsp_url
         ]
-        
-        print(f"Starting Stream Cam {self.cam_id} -> {self.rtsp_url}")
-        # Chạy subprocess ẩn. None để hiện lỗi nếu FFmpeg crash.
-        return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=None)
+        return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+# ================= API =================
+
+def register_camera(cam_id, rtsp_url, risk_level):
+    try:
+        # Gửi kèm tham số risk_level qua query params
+        r = requests.post(
+            f"{API_URL}/camera/start",
+            params={
+                "camera_id": cam_id, 
+                "rtsp_url": rtsp_url,
+                "risk_level": risk_level 
+            },
+            timeout=10
+        )
+        print(f"[API] {cam_id} ({risk_level}): Status {r.status_code}")
+    except Exception as e:
+        print(f"[API] {cam_id}: ERROR Connecting to API: {e}")
 
 # ================= MAIN =================
 
 def main():
-    # 0. Đảm bảo thư mục playlist tồn tại (Mới)
-    if not os.path.exists(PLAYLIST_DIR):
-        print(f"Creating playlist directory: {PLAYLIST_DIR}")
-        os.makedirs(PLAYLIST_DIR)
-        
-    # 1. Load dữ liệu
-    if not os.path.exists(VIOLENCE_DIR) or not os.path.exists(NON_VIOLENCE_DIR):
-        print("Lỗi: Không tìm thấy thư mục dữ liệu video!")
+    os.makedirs(PLAYLIST_DIR, exist_ok=True)
+
+    # 1. Load Registry
+    if not os.path.exists(METADATA_FILE):
+        print(f"[!] Critical Error: Metadata file not found at {METADATA_FILE}")
         return
+
+    with open(METADATA_FILE, newline='', encoding="utf-8") as f:
+        registry = list(csv.DictReader(f))
+
+    print(f"[*] Total cameras in registry: {len(registry)}")
+    selected = registry[:TOTAL_TO_START]
 
     vm = VideoManager(VIOLENCE_DIR, NON_VIOLENCE_DIR)
     
-    simulators = []
-    processes = []
+    # Danh sách lưu trữ thông tin đầy đủ của camera để quản lý
+    camera_processes = []
 
-    # 2. Phân bổ Camera (4 Hotspot, 8 Public, 4 Safe)
-    risk_distribution = ['high']*4 + ['medium']*8 + ['low']*4
-    
-    # Tạo playlist cho từng camera
-    for i in range(NUM_CAMERAS):
-        risk = risk_distribution[i] if i < len(risk_distribution) else 'low'
-        sim = CameraSimulator(i+1, vm, risk)
-        sim.generate_scenario()
-        simulators.append(sim)
+    print(f"\n--- STARTING {len(selected)} CAMERAS ---")
 
-    print("--- Đã tạo xong kịch bản, bắt đầu stream ---")
+    for cam_info in selected:
+        cid = cam_info["camera_id"]
+        curl = cam_info["rtsp_url"]
+        crisk = cam_info.get("risk_level", "low") # Lấy mức độ rủi ro, mặc định là low
 
-    # 3. Chạy Stream song song
-    for sim in simulators:
-        p = sim.start_streaming()
-        processes.append(p)
-        time.sleep(1) # Delay nhẹ để không overload CPU lúc khởi động
+        # Khởi tạo simulator
+        sim = CameraSimulator(cid, curl, vm)
+        sim.generate_playlist()
+        
+        # Chạy FFmpeg
+        proc = sim.start()
+        
+        # Lưu vào danh sách quản lý
+        camera_processes.append({
+            "camera_id": cid,
+            "rtsp_url": curl,
+            "risk_level": crisk, # Lưu risk_level để dùng khi restart
+            "process": proc,
+            "simulator": sim
+        })
 
-    print(f"Hệ thống đang chạy {NUM_CAMERAS} camera giả lập.")
-    print("Nhấn Ctrl+C để dừng hệ thống.")
+        print(f"[RTSP] {cid} started -> {curl}")
+        
+        # Đợi 3 giây để stream khởi tạo ổn định trước khi báo API
+        time.sleep(3)
+        register_camera(cid, curl, crisk) # <-- Truyền risk_level vào hàm đăng ký
+
+    print("\n[SYSTEM] All camera workers are triggered. Monitoring...")
 
     try:
         while True:
             time.sleep(10)
+            for i, cam in enumerate(camera_processes):
+                # Kiểm tra xem tiến trình FFmpeg có bị chết không
+                if cam["process"].poll() is not None:
+                    cid = cam["camera_id"]
+                    curl = cam["rtsp_url"]
+                    crisk = cam["risk_level"]
+                    print(f"[WARN] {cid} stream stopped. Restarting with URL: {curl}")
+                    
+                    # Khởi động lại dùng ĐÚNG url của camera đó
+                    new_proc = cam["simulator"].start()
+                    camera_processes[i]["process"] = new_proc
+                    
+                    # Đăng ký lại với API (nếu cần thiết khi stream restart)
+                    # register_camera(cid, curl, crisk)
+                    
     except KeyboardInterrupt:
-        print("\nĐang dừng hệ thống...")
-        for p in processes:
-            p.kill()
-        
-        # --- SỬA ĐỔI: Xóa file tạm trong thư mục PLAYLIST_DIR ---
-        for f in glob.glob(os.path.join(PLAYLIST_DIR, "playlist_cam_*.txt")):
-            try:
-                os.remove(f)
-            except OSError as e:
-                print(f"Error deleting file {f}: {e}")
-        # --------------------------------------------------------
-        
-        print("Đã dọn dẹp xong.")
+        print("\n[SYSTEM] Shutting down...")
+        for cam in camera_processes:
+            cam["process"].kill()
+        print("[SYSTEM] Cleaned up all processes.")
 
 if __name__ == "__main__":
     main()
+# import os
+# import random
+# import subprocess
+# import time
+# import csv
+# from natsort import natsorted
+
+# # ================= CẤU HÌNH =================
+# VIOLENCE_DIR = "/app/data/raw/RWF-2000/norTrain/Fight"
+# NON_VIOLENCE_DIR = "/app/data/raw/RWF-2000/norTrain/NonFight"
+# PLAYLIST_DIR = "/app/data/playlist"
+# METADATA_FILE = "/app/data/metadata/camera_registry.csv"
+
+# # Chỉ cần số lượng camera muốn giả lập luồng
+# TOTAL_TO_START = 8
+# SIMULATION_DURATION_MINUTES = 60
+
+# # ================= VIDEO MANAGER =================
+
+# class VideoManager:
+#     def __init__(self, v_dir, nv_dir):
+#         self.v_events = self._load_and_group_videos(v_dir)
+#         self.nv_events = self._load_and_group_videos(nv_dir)
+#         print(f"[*] Loaded {len(self.v_events)} violence & {len(self.nv_events)} non-violence events")
+
+#     def _load_and_group_videos(self, directory):
+#         groups = {}
+#         if not os.path.exists(directory):
+#             print(f"[!] Warning: Directory {directory} not found")
+#             return []
+#         for f in os.listdir(directory):
+#             if not f.endswith(('.mp4', '.avi')):
+#                 continue
+#             base = "_".join(f.split('_')[:-1])
+#             groups.setdefault(base, []).append(os.path.join(directory, f))
+#         return [natsorted(v) for v in groups.values()]
+
+#     def random_event(self, violence=False):
+#         source = self.v_events if violence else self.nv_events
+#         return random.choice(source) if source else []
+
+# # ================= CAMERA SIM =================
+
+# class CameraSimulator:
+#     def __init__(self, cam_id, rtsp_url, vm):
+#         self.cam_id = cam_id
+#         self.rtsp_url = rtsp_url
+#         self.vm = vm
+#         self.playlist = f"{PLAYLIST_DIR}/playlist_{cam_id}.txt"
+
+#     def generate_playlist(self):
+#         playlist = []
+#         current = 0
+#         target = SIMULATION_DURATION_MINUTES * 60
+
+#         while current < target:
+#             safe = random.randint(300, 600)
+#             t = 0
+#             while t < safe:
+#                 ev = self.vm.random_event(False)
+#                 if not ev: break
+#                 playlist.extend(ev)
+#                 t += len(ev) * 5
+#             current += t
+
+#             if random.random() < 0.5:
+#                 ev = self.vm.random_event(True)
+#                 if ev:
+#                     playlist.extend(ev)
+#                     current += len(ev) * 5
+
+#         with open(self.playlist, "w") as f:
+#             for p in playlist:
+#                 f.write("file '{}'\n".format(p.replace("\\", "/")))
+
+#     def start(self):
+#         cmd = [
+#             "ffmpeg", "-re",
+#             "-f", "concat", "-safe", "0",
+#             "-i", self.playlist,
+#             "-c", "copy",
+#             "-f", "rtsp", "-rtsp_transport", "tcp",
+#             self.rtsp_url
+#         ]
+#         return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+# # ================= MAIN =================
+
+# def main():
+#     os.makedirs(PLAYLIST_DIR, exist_ok=True)
+
+#     # 1. Load Registry
+#     if not os.path.exists(METADATA_FILE):
+#         print(f"[!] Critical Error: Metadata file not found at {METADATA_FILE}")
+#         return
+
+#     with open(METADATA_FILE, newline='', encoding="utf-8") as f:
+#         registry = list(csv.DictReader(f))
+
+#     print(f"[*] Total cameras in registry: {len(registry)}")
+#     selected = registry[:TOTAL_TO_START]
+
+#     vm = VideoManager(VIOLENCE_DIR, NON_VIOLENCE_DIR)
+    
+#     camera_processes = []
+
+#     print(f"\n--- STARTING RTSP PUSH FOR {len(selected)} CAMERAS ---")
+
+#     for cam_info in selected:
+#         cid = cam_info["camera_id"]
+#         curl = cam_info["rtsp_url"]
+
+#         # Khởi tạo simulator & Tạo danh sách phát
+#         sim = CameraSimulator(cid, curl, vm)
+#         sim.generate_playlist()
+        
+#         # Chỉ chạy FFmpeg để đẩy luồng (Không gọi API)
+#         proc = sim.start()
+        
+#         camera_processes.append({
+#             "camera_id": cid,
+#             "rtsp_url": curl,
+#             "process": proc,
+#             "simulator": sim
+#         })
+
+#         print(f"[RTSP] {cid} pushing -> {curl}")
+        
+#         # Delay nhẹ để tránh overload I/O khi khởi động nhiều FFmpeg cùng lúc
+#         time.sleep(1)
+
+#     print("\n[SYSTEM] All RTSP streams are active. Monitoring for crashes...")
+
+#     try:
+#         while True:
+#             time.sleep(10)
+#             for i, cam in enumerate(camera_processes):
+#                 # Tự động khởi động lại nếu luồng FFmpeg bị ngắt
+#                 if cam["process"].poll() is not None:
+#                     cid = cam["camera_id"]
+#                     curl = cam["rtsp_url"]
+#                     print(f"[WARN] {cid} stream stopped. Restarting: {curl}")
+                    
+#                     new_proc = cam["simulator"].start()
+#                     camera_processes[i]["process"] = new_proc
+                    
+#     except KeyboardInterrupt:
+#         print("\n[SYSTEM] Stopping all streams...")
+#         for cam in camera_processes:
+#             cam["process"].kill()
+#         print("[SYSTEM] Cleaned up.")
+
+# if __name__ == "__main__":
+#     main()

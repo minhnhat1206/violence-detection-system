@@ -4,7 +4,7 @@
   <!-- Hive warehouse trên MinIO (S3A) -->
   <property>
     <name>hive.metastore.warehouse.dir</name>
-    <value>s3a://inference-results/iceberg_warehouse/</value>
+    <value>s3a://warehouse/iceberg_warehouse/</value>
   </property>
 
   <!-- Metastore Thrift URI -->

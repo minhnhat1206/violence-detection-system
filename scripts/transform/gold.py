@@ -146,7 +146,4 @@ def run_gold_batch():
 
 
 if __name__ == "__main__":
-    while True:
-        run_gold_batch()
-        print("TẠM DỪNG 5 PHÚT TRƯỚC LẦN CHẠY TIẾP THEO")
-        time.sleep(300)
+    run_gold_batch()

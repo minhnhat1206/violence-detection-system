@@ -11,7 +11,7 @@ API_PORT = 8000
 METADATA_FILE = "../data/metadata/camera_registry.csv"
 
 # gioi han so luong camera chay AI
-TOTAL_TO_START = 3
+TOTAL_TO_START = 8
 
 API_URL = f"http://{API_HOST_IP}:{API_PORT}"
 
