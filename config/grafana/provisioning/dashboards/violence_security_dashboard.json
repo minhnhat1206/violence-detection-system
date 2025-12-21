@@ -1,0 +1,191 @@
+{
+  "uid": "violence-security-monitor",
+  "title": "HỆ THỐNG GIÁM SÁT AN NINH ĐÔ THỊ",
+  "tags": ["security", "violence", "trino", "iceberg"],
+  "timezone": "utc",
+  "schemaVersion": 38,
+  "version": 1,
+  "style": "dark",
+  "editable": true,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "annotations": { "list": [] },
+  "templating": { "list": [] },
+  "panels": [
+
+    {
+      "id": 1,
+      "title": "TỔNG SỐ VỤ VIỆC BẠO LỰC",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "trino", "uid": "trino_security_ds" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "
+            SELECT
+              count(distinct fact_id) AS total_events
+            FROM fact_camera_monitoring
+            WHERE is_violent_window = true
+              AND $__timeFilter(window_start)
+          "
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "justifyMode": "center",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "red" }
+        }
+      }
+    },
+
+    {
+      "id": 2,
+      "title": "MỨC ĐỘ RỦI RO TRUNG BÌNH (%)",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "trino", "uid": "trino_security_ds" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "
+            SELECT
+              avg(max_risk_score) * 100 AS avg_risk
+            FROM fact_camera_monitoring
+            WHERE is_violent_window = true
+              AND $__timeFilter(window_start)
+          "
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 60 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      }
+    },
+
+    {
+      "id": 3,
+      "title": "BẢN ĐỒ ĐIỂM NÓNG BẠO LỰC",
+      "type": "geomap",
+      "gridPos": { "h": 12, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "trino", "uid": "trino_security_ds" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "
+            SELECT
+              loc.latitude,
+              loc.longitude,
+              fact.max_risk_score * 10 AS size,
+              fact.alert_count AS metric
+            FROM fact_camera_monitoring fact
+            JOIN dim_location loc
+              ON fact.location_key = loc.location_key
+            WHERE fact.is_violent_window = true
+              AND $__timeFilter(fact.window_start)
+          "
+        }
+      ],
+      "options": {
+        "basemap": { "type": "default" },
+        "view": {
+          "id": "coords",
+          "lat": 10.776,
+          "lon": 106.701,
+          "zoom": 13
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "config": {
+              "style": {
+                "color": { "fixed": "red" },
+                "size": { "field": "size", "fixed": 6 }
+              }
+            }
+          }
+        ]
+      }
+    },
+
+    {
+      "id": 4,
+      "title": "PHÂN BỐ SỰ CỐ THEO GIỜ",
+      "type": "heatmap",
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "trino", "uid": "trino_security_ds" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "
+            SELECT
+              date_trunc('hour', window_start) AS time,
+              count(*) AS events
+            FROM fact_camera_monitoring
+            WHERE is_violent_window = true
+              AND $__timeFilter(window_start)
+            GROUP BY 1
+            ORDER BY 1
+          "
+        }
+      ]
+    },
+
+    {
+      "id": 5,
+      "title": "DANH SÁCH CẢNH BÁO CHI TIẾT",
+      "type": "table",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 18 },
+      "datasource": { "type": "trino", "uid": "trino_security_ds" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "
+            SELECT
+              fact.window_start        AS \"Thời gian\",
+              cam.camera_id            AS \"Camera\",
+              loc.street               AS \"Đường\",
+              loc.ward                 AS \"Phường\",
+              fact.max_risk_score      AS \"Độ tin cậy\",
+              fact.alert_count         AS \"Số cảnh báo\",
+              fact.evidence_url        AS \"Bằng chứng\"
+            FROM fact_camera_monitoring fact
+            JOIN dim_camera cam
+              ON fact.camera_key = cam.camera_key
+            JOIN dim_location loc
+              ON fact.location_key = loc.location_key
+            WHERE fact.is_violent_window = true
+              AND $__timeFilter(fact.window_start)
+            ORDER BY fact.window_start DESC
+          "
+        }
+      ],
+      "options": {
+        "showHeader": true
+      }
+    }
+
+  ]
+}
