@@ -1,35 +1,27 @@
-# scripts/transform/bronze.py
 import time, traceback, threading
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, from_json, to_timestamp, current_timestamp, to_date
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType, BooleanType
-
 from prometheus_client import start_http_server, Counter, Gauge
 
-# ----- Metrics -----
+# ----- Metrics (Prometheus) -----
 PROM_PORT = 8005
-PROCESSED = Counter("bronze_records_total","Total bronze records")
-BATCH_DUR = Gauge("bronze_batch_duration_seconds","Batch duration (s)")
+PROCESSED = Counter("bronze_records_total", "Total bronze records")
+BATCH_DUR = Gauge("bronze_batch_duration_seconds", "Batch duration (s)")
 
-# ----- Config -----
+# ----- Cau hinh he thong -----
 KAFKA_BROKER = "kafka:9092"
 KAFKA_TOPIC = "urban-safety-alerts"
-
 CATALOG = "iceberg"
 NS = "default"
 BRONZE_TBL = f"{CATALOG}.{NS}.bronzeViolence"
-
 WAREHOUSE = "s3a://warehouse/"
 CHECKPOINT = "s3a://checkpoint/bronzeViolence/"
 
-# Tunables (thử tăng/decrease tuỳ host)
-MAX_OFFSETS_PER_TRIGGER = 2000   # GIỚI HẠN ingest; giảm nếu crash
-MICRO_BATCH_SECONDS = 120       # tăng để giảm metadata churn
-COALESCE_FILES = 2              # files per batch, không để 1 nếu metadata heavy
-EXPIRE_EVERY_N_BATCH = 5        # clean snapshots mỗi N batch
-TARGET_FILE_SIZE = 128 * 1024 * 1024  # 128MB
+# Giu lai nhieu snapshot hon de Trino truy van on dinh
+RETAIN_SNAPSHOTS = 100 
 
-# ----- Schema -----
+# ----- Dinh nghia Schema du lieu -----
 SCHEMA = StructType([
     StructField("camera_id", StringType()),
     StructField("city", StringType()),
@@ -49,33 +41,22 @@ SCHEMA = StructType([
     StructField("evidence_url", StringType())
 ])
 
-# ----- Spark session -----
+# ----- Khoi tao Spark Session -----
 spark = (
     SparkSession.builder
-    .appName("BronzeLayer_Realtime_Resilient")
-    .config("spark.sql.extensions","org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
-    .config(f"spark.sql.catalog.{CATALOG}","org.apache.iceberg.spark.SparkCatalog")
-    .config(f"spark.sql.catalog.{CATALOG}.type","hive")
-    .config(f"spark.sql.catalog.{CATALOG}.uri","thrift://hive-metastore:9083")
+    .appName("BronzeLayer_Streaming_CleanLog")
+    .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
+    .config(f"spark.sql.catalog.{CATALOG}", "org.apache.iceberg.spark.SparkCatalog")
+    .config(f"spark.sql.catalog.{CATALOG}.type", "hive")
+    .config(f"spark.sql.catalog.{CATALOG}.uri", "thrift://hive-metastore:9083")
     .config(f"spark.sql.catalog.{CATALOG}.warehouse", WAREHOUSE)
-
-    # IO / files
-    .config("spark.sql.files.maxRecordsPerFile","200000")
-    .config("spark.sql.iceberg.write.target-file-size-bytes", str(TARGET_FILE_SIZE))
-
-    # conservative shuffle/partitions for small worker
-    .config("spark.sql.shuffle.partitions","2")
-    .config("spark.default.parallelism","2")
-
-    # memory tuning (tweak if you change worker mem)
-    .config("spark.memory.fraction","0.7")
-    .config("spark.memory.storageFraction","0.3")
-
     .getOrCreate()
 )
-spark.sparkContext.setLogLevel("WARN")
 
-# ----- ensure table -----
+# An cac log thong tin he thong khong can thiet
+spark.sparkContext.setLogLevel("ERROR")
+
+# Dam bao bang Iceberg ton tai
 spark.sql(f"""
 CREATE TABLE IF NOT EXISTS {BRONZE_TBL} (
     camera_id string, city string, district string, ward string, street string,
@@ -86,54 +67,53 @@ CREATE TABLE IF NOT EXISTS {BRONZE_TBL} (
 ) USING iceberg PARTITIONED BY (event_date)
 """)
 
-# ----- metrics server -----
-def _start_metrics(): start_http_server(PROM_PORT)
-threading.Thread(target=_start_metrics, daemon=True).start()
-
-# ----- batch processor -----
 def process_batch(batch_df, batch_id):
-    start = time.time()
+    """Ham xu ly cho tung dot du lieu (Micro-batch)"""
+    start_time = time.time()
     try:
-        if batch_df.isEmpty():
-            return
+        record_count = batch_df.count()
+        
+        separator = "-" * 50
+        print(separator)
+        print(f"BATCH {batch_id} | Du lieu nhan: {record_count} ban ghi")
+        
+        if record_count > 0:
+            # Ghi du lieu vao tang Bronze
+            batch_df.withColumn("event_time", to_timestamp(col("timestamp"))) \
+                    .withColumn("event_date", to_date(col("timestamp"))) \
+                    .withColumn("ingest_time", current_timestamp()) \
+                    .drop("timestamp") \
+                    .writeTo(BRONZE_TBL).append()
 
-        n = batch_df.count()
-        print(f"[BRONZE] Batch {batch_id} records={n}")
+            # Bao tri Metadata: Giu lai lich su snapshots
+            if batch_id % 5 == 0:
+                print(f"Bao tri Metadata: Expire Snapshots (retain={RETAIN_SNAPSHOTS})")
+                spark.sql(f"CALL {CATALOG}.system.expire_snapshots(table => '{BRONZE_TBL}', retain_last => {RETAIN_SNAPSHOTS})")
 
-        # safe write: coalesce small (not 1), append to Iceberg
-        batch_df.coalesce(COALESCE_FILES) \
-                .withColumn("event_time", to_timestamp(col("timestamp"))) \
-                .withColumn("event_date", to_date(col("timestamp"))) \
-                .withColumn("ingest_time", current_timestamp()) \
-                .drop("timestamp") \
-                .writeTo(BRONZE_TBL).append()
-
-        # expire snapshots & remove orphan files occasionally
-        if batch_id % EXPIRE_EVERY_N_BATCH == 0:
-            try:
-                spark.sql(f"CALL {CATALOG}.system.expire_snapshots(table => '{BRONZE_TBL}', retain_last => 2)")
-            except Exception as e:
-                print("[BRONZE] expire_snapshots error:", e)
-            try:
-                spark.sql(f"CALL {CATALOG}.system.remove_orphan_files(table => '{BRONZE_TBL}', older_than => TIMESTAMP '1970-01-01 00:00:00')")
-            except Exception as e:
-                print("[BRONZE] remove_orphan_files error:", e)
-
-        # metrics
-        PROCESSED.inc(n)
-        BATCH_DUR.set(time.time() - start)
+            PROCESSED.inc(record_count)
+            duration = time.time() - start_time
+            BATCH_DUR.set(duration)
+            print(f"Hoan tat Batch {batch_id} trong {duration:.2f}s")
+        else:
+            print("Dang doi du lieu moi tu Kafka...")
+            
+        print(separator)
 
     except Exception as e:
-        print("[BRONZE] ERROR writing batch:", e)
+        print(f"LOI TAI BATCH {batch_id}: {e}")
         traceback.print_exc()
 
-# ----- stream read with maxOffsetsPerTrigger -----
+# Chay Prometheus Metrics Server
+def _start_metrics():
+    start_http_server(PROM_PORT)
+threading.Thread(target=_start_metrics, daemon=True).start()
+
+# Cau hinh doc Kafka Stream
 kafka_df = (
     spark.readStream.format("kafka")
     .option("kafka.bootstrap.servers", KAFKA_BROKER)
     .option("subscribe", KAFKA_TOPIC)
     .option("startingOffsets", "latest")
-    .option("maxOffsetsPerTrigger", str(MAX_OFFSETS_PER_TRIGGER))
     .load()
 )
 
@@ -143,10 +123,12 @@ parsed = (kafka_df
     .select("d.*")
 )
 
+# Khoi chay luong Streaming
+print(f"Bronze Stream dang khoi dong. Topic: {KAFKA_TOPIC}")
 query = (parsed.writeStream
     .foreachBatch(process_batch)
     .option("checkpointLocation", CHECKPOINT)
-    .trigger(processingTime=f"{MICRO_BATCH_SECONDS} seconds")
+    .trigger(processingTime="60 seconds")
     .start()
 )
 

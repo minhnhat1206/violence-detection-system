@@ -1,19 +1,30 @@
+# Sử dụng base image nhẹ
 FROM python:3.10-slim
 
 WORKDIR /app
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
 
-# System deps for pandas/pyarrow
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# 1. Cài đặt các gói hệ thống cần thiết
+RUN apt-get update && apt-get install -y \
     build-essential \
-    curl \
- && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
+# 2. Cài đặt dependencies trước để cache layer
 COPY docker/requirements_chatbot.txt .
 RUN pip install --no-cache-dir -r requirements_chatbot.txt
 
-# COPY scripts/chatbot/app.py scripts/chatbot/ingest.py scripts/chatbot/rag_store.py ./
+# 3. TÁCH BIỆT: Tải Model Embedding
+# Copy script tải model và chạy ngay để lưu vào một layer riêng
+COPY scripts/chatbot/download_model.py .
+RUN python download_model.py
 
+# 4. Copy toàn bộ mã nguồn ứng dụng (Thay đổi thường xuyên)
+COPY scripts/chatbot/ .
+
+# Biến môi trường chỉ định đường dẫn model
+ENV EMBEDDING_MODEL_PATH=/app/models/embedding_model
+ENV CHROMA_DIR=/data/chroma
+
+# Port cho Flask Chatbot
 EXPOSE 5002
+
 CMD ["python", "app.py"]

@@ -67,7 +67,7 @@ def generate_and_save_metadata(n_cameras: int, rtsp_base: str, metadata_file: Pa
         writer.writeheader()
         writer.writerows(metadata_rows)
         
-    print(f"✅ Đã tạo metadata cho {len(metadata_rows)} camera và ghi vào: {metadata_file.resolve()}")
+    print(f" Đã tạo metadata cho {len(metadata_rows)} camera và ghi vào: {metadata_file.resolve()}")
     
     return metadata_rows
 
