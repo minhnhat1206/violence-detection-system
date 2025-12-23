@@ -253,13 +253,14 @@ services:
     container_name: grafana
     ports:
       - "3001:3000"
-    user: "0" 
+    user: "0"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
       - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_INSTALL_PLUGINS=trino-datasource
 
     depends_on:
       - prometheus
@@ -298,7 +299,7 @@ services:
       - "8081:8080"
     volumes:
       - ../config/trino/coordinator/etc:/etc/trino
-    mem_limit: 1g
+    mem_limit: 2.2g
     cpus: 0.5
     networks:
       - violence-detection-net
@@ -310,7 +311,7 @@ services:
     hostname: trino-worker-1
     volumes:
       - ../config/trino/worker1/etc:/etc/trino
-    mem_limit: 512m
+    mem_limit: 1.5g
     cpus: 0.5
     networks:
       - violence-detection-net
@@ -321,7 +322,7 @@ services:
     hostname: trino-worker-2
     volumes:
       - ../config/trino/worker2/etc:/etc/trino
-    mem_limit: 512m
+    mem_limit: 1.5g
     cpus: 0.5
     networks:
       - violence-detection-net

@@ -1,191 +1,614 @@
 {
-  "uid": "violence-security-monitor",
-  "title": "HỆ THỐNG GIÁM SÁT AN NINH ĐÔ THỊ",
-  "tags": ["security", "violence", "trino", "iceberg"],
-  "timezone": "utc",
-  "schemaVersion": 38,
-  "version": 1,
-  "style": "dark",
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
   "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 2,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "trino-datasource",
+        "uid": "trino_security_ds"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "red",
+            "mode": "fixed"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "rawSql": "SELECT event_time AS time, score FROM iceberg.default.bronzeviolence WHERE is_violent = true AND $__timeFilter(event_time) AND ('${camera_id}' = '%' OR camera_id IN (${camera_id:singlequote})) ORDER BY time ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "REALTIME ĐIỂM SỐ NGUY HIỂM THEO CAMERA",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "trino-datasource",
+        "uid": "trino_security_ds"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "orange",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 8
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "rawSql": "SELECT count(*) AS value FROM iceberg.default.fact_camera_monitoring WHERE is_violent_window = true AND window_start >= now() - interval '24' hour",
+          "refId": "A"
+        }
+      ],
+      "title": "TỔNG SỐ SỰ KIỆN BẠO LỰC (24 GIỜ)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "trino-datasource",
+        "uid": "trino_security_ds"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "red",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 8
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "rawSql": "SELECT count(*) AS value FROM iceberg.default.fact_camera_monitoring WHERE is_violent_window = true AND window_start >= now() - interval '7' day",
+          "refId": "A"
+        }
+      ],
+      "title": "TỔNG SỐ SỰ KIỆN BẠO LỰC (7 NGÀY)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "trino-datasource",
+        "uid": "trino_security_ds"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "orange",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "rawSql": "SELECT avg(max_risk_score) * 100 AS value FROM iceberg.default.fact_camera_monitoring WHERE window_start >= now() - interval '15' minute",
+          "refId": "A"
+        }
+      ],
+      "title": "RỦI RO TRUNG BÌNH (HIỆN TẠI)",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "trino-datasource",
+        "uid": "trino_security_ds"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "orange",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "rawSql": "SELECT avg(avg_latency_ms) AS value FROM iceberg.default.fact_camera_monitoring WHERE window_start >= now() - interval '5' minute",
+          "refId": "A"
+        }
+      ],
+      "title": "ĐỘ TRỄ HỆ THỐNG (ms)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "trino-datasource",
+        "uid": "trino_security_ds"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "red",
+            "mode": "fixed"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 5,
+      "options": {
+        "basemap": {
+          "config": {
+            "server": "streets",
+            "showLabels": true,
+            "theme": "auto"
+          },
+          "name": "Layer 0",
+          "noRepeat": false,
+          "type": "default"
+        },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showDebug": false,
+          "showMeasure": false,
+          "showScale": false,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {
+                  "fixed": "red"
+                },
+                "opacity": 0.8,
+                "rotation": {
+                  "fixed": 0,
+                  "max": 360,
+                  "min": -360,
+                  "mode": "mod"
+                },
+                "size": {
+                  "field": "value",
+                  "fixed": 5,
+                  "max": 15,
+                  "min": 2
+                },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                },
+                "symbolAlign": {
+                  "horizontal": "center",
+                  "vertical": "center"
+                },
+                "textConfig": {
+                  "fontSize": 12,
+                  "offsetX": 0,
+                  "offsetY": 0,
+                  "textAlign": "center",
+                  "textBaseline": "middle"
+                }
+              }
+            },
+            "location": {
+              "mode": "auto"
+            },
+            "name": "Layer 1",
+            "tooltip": true,
+            "type": "markers"
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "view": {
+          "allLayers": false,
+          "id": "fit",
+          "lastOnly": false,
+          "lat": 0,
+          "layer": "Layer 1",
+          "lon": 0,
+          "noRepeat": false,
+          "padding": 10,
+          "zoom": 15
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "rawSql": "SELECT min(fact.window_start) AS time, loc.latitude, loc.longitude, count(*) AS value FROM iceberg.default.fact_camera_monitoring fact JOIN iceberg.default.dim_location loc ON fact.location_key = loc.location_key WHERE fact.is_violent_window = true AND $__timeFilter(fact.window_start) GROUP BY loc.latitude, loc.longitude",
+          "refId": "A"
+        }
+      ],
+      "title": "BẢN ĐỒ ĐIỂM NÓNG BẠO LỰC",
+      "type": "geomap"
+    },
+    {
+      "datasource": {
+        "type": "trino-datasource",
+        "uid": "trino_security_ds"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "orange",
+            "mode": "fixed"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 6,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "rawSql": "SELECT loc.ward AS ward, count(*) AS total_events FROM iceberg.default.fact_camera_monitoring fact JOIN iceberg.default.dim_location loc ON fact.location_key = loc.location_key WHERE fact.is_violent_window = true AND fact.window_start >= now() - interval '7' day GROUP BY loc.ward ORDER BY total_events DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "TOP KHU VỰC NGUY HIỂM THEO PHƯỜNG (7 NGÀY)",
+      "type": "barchart"
+    }
+  ],
+  "preload": false,
+  "refresh": "5m",
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "allValue": "",
+        "datasource": {
+          "type": "trino-datasource",
+          "uid": "trino_security_ds"
+        },
+        "includeAll": true,
+        "multi": true,
+        "name": "camera_id",
+        "options": [],
+        "query": "SELECT DISTINCT camera_id FROM iceberg.default.bronzeviolence ORDER BY camera_id",
+        "refresh": 1,
+        "type": "query"
+      }
+    ]
+  },
   "time": {
     "from": "now-24h",
     "to": "now"
   },
-  "annotations": { "list": [] },
-  "templating": { "list": [] },
-  "panels": [
-
-    {
-      "id": 1,
-      "title": "TỔNG SỐ VỤ VIỆC BẠO LỰC",
-      "type": "stat",
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
-      "datasource": { "type": "trino", "uid": "trino_security_ds" },
-      "targets": [
-        {
-          "refId": "A",
-          "format": "table",
-          "rawSql": "
-            SELECT
-              count(distinct fact_id) AS total_events
-            FROM fact_camera_monitoring
-            WHERE is_violent_window = true
-              AND $__timeFilter(window_start)
-          "
-        }
-      ],
-      "options": {
-        "colorMode": "value",
-        "justifyMode": "center",
-        "textMode": "value"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "fixed", "fixedColor": "red" }
-        }
-      }
-    },
-
-    {
-      "id": 2,
-      "title": "MỨC ĐỘ RỦI RO TRUNG BÌNH (%)",
-      "type": "gauge",
-      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
-      "datasource": { "type": "trino", "uid": "trino_security_ds" },
-      "targets": [
-        {
-          "refId": "A",
-          "format": "table",
-          "rawSql": "
-            SELECT
-              avg(max_risk_score) * 100 AS avg_risk
-            FROM fact_camera_monitoring
-            WHERE is_violent_window = true
-              AND $__timeFilter(window_start)
-          "
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "min": 0,
-          "max": 100,
-          "unit": "percent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 60 },
-              { "color": "red", "value": 85 }
-            ]
-          }
-        }
-      }
-    },
-
-    {
-      "id": 3,
-      "title": "BẢN ĐỒ ĐIỂM NÓNG BẠO LỰC",
-      "type": "geomap",
-      "gridPos": { "h": 12, "w": 12, "x": 0, "y": 6 },
-      "datasource": { "type": "trino", "uid": "trino_security_ds" },
-      "targets": [
-        {
-          "refId": "A",
-          "format": "table",
-          "rawSql": "
-            SELECT
-              loc.latitude,
-              loc.longitude,
-              fact.max_risk_score * 10 AS size,
-              fact.alert_count AS metric
-            FROM fact_camera_monitoring fact
-            JOIN dim_location loc
-              ON fact.location_key = loc.location_key
-            WHERE fact.is_violent_window = true
-              AND $__timeFilter(fact.window_start)
-          "
-        }
-      ],
-      "options": {
-        "basemap": { "type": "default" },
-        "view": {
-          "id": "coords",
-          "lat": 10.776,
-          "lon": 106.701,
-          "zoom": 13
-        },
-        "layers": [
-          {
-            "type": "markers",
-            "config": {
-              "style": {
-                "color": { "fixed": "red" },
-                "size": { "field": "size", "fixed": 6 }
-              }
-            }
-          }
-        ]
-      }
-    },
-
-    {
-      "id": 4,
-      "title": "PHÂN BỐ SỰ CỐ THEO GIỜ",
-      "type": "heatmap",
-      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 6 },
-      "datasource": { "type": "trino", "uid": "trino_security_ds" },
-      "targets": [
-        {
-          "refId": "A",
-          "format": "time_series",
-          "rawSql": "
-            SELECT
-              date_trunc('hour', window_start) AS time,
-              count(*) AS events
-            FROM fact_camera_monitoring
-            WHERE is_violent_window = true
-              AND $__timeFilter(window_start)
-            GROUP BY 1
-            ORDER BY 1
-          "
-        }
-      ]
-    },
-
-    {
-      "id": 5,
-      "title": "DANH SÁCH CẢNH BÁO CHI TIẾT",
-      "type": "table",
-      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 18 },
-      "datasource": { "type": "trino", "uid": "trino_security_ds" },
-      "targets": [
-        {
-          "refId": "A",
-          "format": "table",
-          "rawSql": "
-            SELECT
-              fact.window_start        AS \"Thời gian\",
-              cam.camera_id            AS \"Camera\",
-              loc.street               AS \"Đường\",
-              loc.ward                 AS \"Phường\",
-              fact.max_risk_score      AS \"Độ tin cậy\",
-              fact.alert_count         AS \"Số cảnh báo\",
-              fact.evidence_url        AS \"Bằng chứng\"
-            FROM fact_camera_monitoring fact
-            JOIN dim_camera cam
-              ON fact.camera_key = cam.camera_key
-            JOIN dim_location loc
-              ON fact.location_key = loc.location_key
-            WHERE fact.is_violent_window = true
-              AND $__timeFilter(fact.window_start)
-            ORDER BY fact.window_start DESC
-          "
-        }
-      ],
-      "options": {
-        "showHeader": true
-      }
-    }
-
-  ]
+  "timepicker": {},
+  "timezone": "utc",
+  "title": "HỆ THỐNG GIÁM SÁT AN NINH ĐÔ THỊ",
+  "uid": "violence-security-monitor",
+  "version": 24
 }

@@ -1,7 +1,12 @@
 apiVersion: 1
+
+deleteDatasources:
+  - name: Trino_Security_DB
+    orgId: 1
+
 datasources:
   - name: Trino_Security_DB
-    type: trino
+    type: trino-datasource
     uid: trino_security_ds
     url: http://trino-coordinator:8080
     user: admin
