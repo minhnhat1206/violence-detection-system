@@ -150,6 +150,7 @@ def run_gold_batch():
             base_df
             .filter(col("is_violent_window") == True)
             .select(
+                col("is_violent_window"),
                 col("fact_id").alias("event_id"),
                 col("window_start").alias("timestamp_utc"),
                 "camera_id", "city", "district", "ward", "street",
