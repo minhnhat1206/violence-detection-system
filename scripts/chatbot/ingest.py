@@ -41,20 +41,39 @@ def read_parquet_df(client: Minio, bucket: str, key: str) -> pd.DataFrame:
     return table.to_pandas()
 
 def build_text_row(row: pd.Series) -> str:
-    """BƯỚC 1: Tối ưu hóa Text Builder sang ngôn ngữ tự nhiên"""
     event_id = row.get('event_id', 'không rõ ID')
     cam_id = row.get('camera_id', 'không rõ vị trí')
-    time_str = row.get('timestamp_utc', 'không rõ thời gian')
     
+    # Lấy giá trị thời gian
+    time_val = row.get('timestamp_utc')
+    
+    # Chuyển đổi Timestamp sang chuỗi (String) một cách an toàn
+    if pd.isnull(time_val):
+        time_str = "không rõ thời gian"
+    else:
+        # Bạn có thể dùng str(time_val) hoặc định dạng lại theo ý muốn .strftime('%Y-%m-%d %H:%M:%S')
+        time_str = str(time_val)
+    
+    city = row.get('city', 'không rõ thành phố')
+    district = row.get('district', 'không rõ quận/huyện')
+    ward = row.get('ward', 'không rõ phường/xã')
+    street = row.get('street', 'không rõ đường/phố')
+    
+    if city != 'không rõ thành phố' or district != 'không rõ quận/huyện' or ward != 'không rõ phường/xã' or street != 'không rõ đường/phố':
+        location_parts = [part for part in [street, ward, district, city] if part and str(part).lower() != 'nan' and 'không rõ' not in str(part)]
+        location_str = ", ".join(location_parts)
+        # Sử dụng f-string ở đây là an toàn nhất
+        time_str = f"{time_str} tại {location_str}"      
+
     # Chuẩn hóa nhãn hiển thị
-    raw_label = str(row.get('label', '')).upper()
-    label = "BẠO LỰC" if raw_label == "VIOLENCE" else "bình thường"
+    raw_label = str(row.get('is_violent_window', '')).upper()
+    label = "BẠO LỰC" if raw_label == "TRUE" else "bình thường"
     
     score = row.get('score', 0)
     
     text = (
         f"Sự kiện {event_id} được ghi nhận tại camera {cam_id} vào lúc {time_str}. "
-        f"Hệ thống phân tích hình ảnh đánh giá đây là hành vi {label} với mức độ tin cậy {score:.2f}."
+        f"Hệ thống phân tích hình ảnh đánh giá đây là hành vi {label} với mức độ bạo lực {score:.2f}."
     )
     
     extra = row.get('extra', None)
