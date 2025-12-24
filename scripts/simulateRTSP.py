@@ -105,7 +105,9 @@ class CameraSimulator:
     def start(self):
         cmd = [
             "ffmpeg", "-re",
-            "-f", "concat", "-safe", "0",
+            "-f", "concat", 
+            "-loop", "1",        
+            "-safe", "0",
             "-i", self.playlist,
             "-c:v", "libx264",
             "-profile:v", "baseline",
