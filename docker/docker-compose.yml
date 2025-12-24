@@ -42,6 +42,7 @@ services:
     networks:
       - violence-detection-net
     # --- MinIO ---
+
   minio:
     image: dataguy16/minio:latest
     container_name: minio
@@ -55,6 +56,8 @@ services:
       - minio_data:/bitnami/minio/data
     networks:
       - violence-detection-net
+    command: server /bitnami/minio/data --console-address ":9001"
+
     restart: unless-stopped
 
   # --- MinIO Client ---
@@ -68,6 +71,7 @@ services:
         sleep 20 && \
         mc alias set minio http://minio:9000 minio mypassword && \
         mc mb minio/inference-results || true && \
+        mc mb minio/warehouse || true && \
         mc mb minio/checkpoint || true && \
         mc mb minio/rtsp-frames || true && \
         mc anonymous set download minio/inference-results || true
@@ -349,8 +353,6 @@ services:
         - violence-detection-net 
 networks:
   violence-detection-net:
-    name: violence-detection-net 
-    external: true 
 volumes:
   zookeeper_data:
   kafka-data:

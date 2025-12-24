@@ -12,7 +12,8 @@ NON_VIOLENCE_DIR = "/app/data/raw/RWF-2000/norTrain/NonFight"
 PLAYLIST_DIR = "/app/data/playlist"
 METADATA_FILE = "/app/data/metadata/camera_registry.csv"
 
-API_HOST_IP = "192.168.0.200"
+# API_HOST_IP = "192.168.0.200"
+API_HOST_IP = "viomobilenet_api"
 API_PORT = 8000
 API_URL = f"http://{API_HOST_IP}:{API_PORT}"
 

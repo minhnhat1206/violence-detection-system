@@ -6,7 +6,7 @@ import os
 # ================= CẤU HÌNH =================
 
 # Thay thế bằng địa chỉ IP Host thực tế của bạn
-API_HOST_IP = "192.168.0.200"
+API_HOST_IP = "viomobilenet_api"
 API_PORT = 8000
 METADATA_FILE = "../data/metadata/camera_registry.csv"
 
