@@ -67,7 +67,7 @@ def generate_and_save_metadata(n_cameras: int, rtsp_base: str, metadata_file: Pa
         writer.writeheader()
         writer.writerows(metadata_rows)
         
-    print(f"✅ Đã tạo metadata cho {len(metadata_rows)} camera và ghi vào: {metadata_file.resolve()}")
+    print(f" Đã tạo metadata cho {len(metadata_rows)} camera và ghi vào: {metadata_file.resolve()}")
     
     return metadata_rows
 
@@ -86,4 +86,4 @@ def load_camera_registry(metadata_file: Path):
 
 if __name__ == '__main__':
     # Chỉ chạy thử nghiệm
-    generate_and_save_metadata(16, "rtsp://103.78.3.29:8554", Path("../data/metadata/camera_registry.csv"))
+    generate_and_save_metadata(16, "rtsp://mediamtx:8554", Path("../data/metadata/camera_registry.csv"))

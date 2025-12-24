@@ -1,6 +1,3 @@
-networks:
-  violence-detection-net:
-    driver: bridge
 
 services:
   kafka:
@@ -45,6 +42,7 @@ services:
     networks:
       - violence-detection-net
     # --- MinIO ---
+
   minio:
     image: dataguy16/minio:latest
     container_name: minio
@@ -58,6 +56,8 @@ services:
       - minio_data:/bitnami/minio/data
     networks:
       - violence-detection-net
+    command: server /bitnami/minio/data --console-address ":9001"
+
     restart: unless-stopped
 
   # --- MinIO Client ---
@@ -71,6 +71,7 @@ services:
         sleep 20 && \
         mc alias set minio http://minio:9000 minio mypassword && \
         mc mb minio/inference-results || true && \
+        mc mb minio/warehouse || true && \
         mc mb minio/checkpoint || true && \
         mc mb minio/rtsp-frames || true && \
         mc anonymous set download minio/inference-results || true
@@ -98,11 +99,10 @@ services:
       - ../pids:/app/pids
       - ../data/raw/RWF-2000:/app/data/raw/RWF-2000
       - ../data/playlist:/app/data/playlist
-    # depends_on:
-    #   - mediamtx
+      - ../scripts/:/app/
     networks:
       - violence-detection-net
-    restart: on-failure
+    restart: "no"
     # command: sh -c "tail -f /dev/null"
 
   # --- Mediamtx (RTSP Server) ---
@@ -131,10 +131,6 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.producer
     container_name: producer
-    # depends_on:
-    #   - kafka
-    #   - minio
-    #   - rtsp_pusher
     environment:
       MINIO_ENDPOINT: minio:9000
       KAFKA_BROKER: kafka:9092
@@ -144,27 +140,6 @@ services:
       - ../scripts:/app/scripts
       - ../data:/app/data
     restart: on-failure
-
-  # --- Inference Worker ---
-  inference_worker:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.producer
-    container_name: inference_worker
-    restart: always
-    command: python /app/scripts/inference_worker.py
-    environment:
-      PYTHONUNBUFFERED: 1
-      MINIO_ENDPOINT: minio:9000
-      KAFKA_BROKER: kafka:9092
-    depends_on:
-      - kafka
-      - producer # Đảm bảo producer đã gửi dữ liệu
-    networks:
-      - violence-detection-net
-    volumes:
-      - ../scripts:/app/scripts
-      - ../data:/app/data
 
   spark-master:
     build:
@@ -179,16 +154,25 @@ services:
       HOME: /tmp 
       SPARK_HOME: /opt/bitnami/spark
       SPARK_USER: sparkuser
+      # - SPARK_DRIVER_MEMORY=4g  
+      # - SPARK_EXECUTOR_MEMORY=2g
     ports:
       - "8080:8080" # Spark Web UI
+      - "8005:8005"
     networks:
       - violence-detection-net
     volumes:
-      # Mount script PySpark
-      - ../scripts:/opt/bitnami/spark/scripts
-      - ../config/spark:/opt/bitnami/spark/conf/
+    - ../scripts:/opt/bitnami/spark/scripts
+    - ../config/spark:/opt/bitnami/spark/conf
     restart: always
+    deploy: 
+          resources:
+            limits:
+              memory: 4g
 
+  # =========================
+  # Spark Worker
+  # =========================
   spark-worker:
     build:
       context: ..
@@ -197,16 +181,21 @@ services:
     environment:
       SPARK_MODE: worker
       SPARK_MASTER_URL: spark://spark-master:7077
-      SPARK_WORKER_CORES: 1
-      SPARK_WORKER_MEMORY: 1g
-    networks:
-      - violence-detection-net
+      SPARK_WORKER_CORES: 2
+      SPARK_WORKER_MEMORY: 4g
     volumes:
-      - ../scripts:/opt/bitnami/spark/scripts
-      - ../config/spark:/opt/bitnami/spark/conf/
+    - ../scripts:/opt/bitnami/spark/scripts
+    - ../config/spark:/opt/bitnami/spark/conf
     depends_on:
       - spark-master
+    networks:
+      - violence-detection-net
     restart: always
+    deploy: 
+        resources:
+          limits:
+            memory: 6g
+
     
   # ---- Hive metastore -----
   mysql:
@@ -268,13 +257,14 @@ services:
     container_name: grafana
     ports:
       - "3001:3000"
-    user: "0" 
+    user: "0"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
       - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_INSTALL_PLUGINS=trino-datasource
 
     depends_on:
       - prometheus
@@ -313,6 +303,8 @@ services:
       - "8081:8080"
     volumes:
       - ../config/trino/coordinator/etc:/etc/trino
+    mem_limit: 2.2g
+    cpus: 0.5
     networks:
       - violence-detection-net
 
@@ -323,6 +315,8 @@ services:
     hostname: trino-worker-1
     volumes:
       - ../config/trino/worker1/etc:/etc/trino
+    mem_limit: 1.5g
+    cpus: 0.5
     networks:
       - violence-detection-net
 
@@ -332,50 +326,33 @@ services:
     hostname: trino-worker-2
     volumes:
       - ../config/trino/worker2/etc:/etc/trino
+    mem_limit: 1.5g
+    cpus: 0.5
     networks:
       - violence-detection-net
-  trino-api:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.trino-api
-    container_name: trino-api
-    ports:
-      - "3000:3000"            
-    env_file:
-      - ../backend/.env      
-    depends_on:
-      - trino-coordinator   
-    networks:
-      - violence-detection-net
-    restart: unless-stopped
 
-  rag_chatbot:
-    build: 
-      context: ..
-      dockerfile: docker/Dockerfile.chatbot
-    container_name: rag_chatbot
-    environment:
-      # MinIO
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-      - MINIO_SECURE=false
-      - ICEBERG_BUCKET=${ICEBERG_BUCKET}
-      - ICEBERG_PREFIX=${ICEBERG_PREFIX}
-      # Vector store
-      - CHROMA_DIR=/data/chroma
-      # Optional LLM (OpenAI)
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-    depends_on:
-      - minio
-    volumes:
-      - chroma_data:/data/chroma
-      - ../scripts/chatbot:/app
-    ports:
-      - "5002:5002"
-    networks:
-      - violence-detection-net
-    restart: unless-stopped
+  chatbot:
+      build:
+        context: ..
+        dockerfile: docker/Dockerfile.chatbot
+      container_name: chatbot
+      environment:
+        - MINIO_ENDPOINT=minio:9000
+        - MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
+        - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+        - GEMINI_API_KEY=${GEMINI_API_KEY}
+        - ICEBERG_BUCKET=${ICEBERG_BUCKET}
+        - ICEBERG_PREFIX=${ICEBERG_PREFIX}
+      volumes:
+        - chroma_data:/data/chroma
+      ports:
+        - "5002:5002"
+      depends_on:
+        - minio
+      networks:
+        - violence-detection-net 
+networks:
+  violence-detection-net:
 volumes:
   zookeeper_data:
   kafka-data:

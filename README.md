@@ -310,4 +310,8 @@ Bucket:
 docker compose down
 ```
 
+```
+ALTER TABLE iceberg.default.bronzeviolence
+SET PROPERTIES format_version = 2;
+```
 ---

@@ -1,4 +1,5 @@
 flask
+flask-cors
 minio
 pandas
 pyarrow
