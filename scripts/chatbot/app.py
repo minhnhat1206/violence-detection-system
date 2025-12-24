@@ -81,7 +81,7 @@ Câu hỏi: {question}
 Ngữ cảnh:
 {context}
 
-Trả lời chi tiết bằng tiếng Việt, tập trung vào các sự kiện bạo lực được ghi nhận."""
+Trả lời chi tiết bằng tiếng Việt, tập trung vào các sự kiện bạo lực được ghi nhận.  Nếu câu hỏi không liên quan đến dữ liệu, hãy trả lời rằng bạn chỉ có thể hỗ trợ các câu hỏi liên quan đến giám sát an ninh."""
         try:
             response = model.generate_content(prompt)
             return response.text.strip()
