@@ -1,4 +1,4 @@
-<img width="1600" height="806" alt="image" src="https://github.com/user-attachments/assets/c32df4bb-9d44-4d3a-9409-9ffeccb756a8" /><img width="1600" height="806" alt="image" src="https://github.com/user-attachments/assets/e1bac0f3-cd9d-4a4f-9d9b-43bc2eb7a27c" /># 🛡️ Smart Security Monitoring System based on Lakehouse & AI
+# 🛡️ Smart Security Monitoring System based on Lakehouse & AI
 
 ### End-to-End Real-time Violence Detection & Analytics Platform
 
@@ -61,7 +61,7 @@ Visualizes data aggregated in the **Gold Layer** (Star Schema) for strategic dec
 * **Trend Analysis:** Displays 7-day historical trends and ranks the top dangerous areas to assist in patrol planning.
 
 ### 4. Vigilance Intelligence Terminal (GenAI Assistant)
-
+![Live Command Center](assets/s-blob-v1-IMAGE-53h97-XzGRU.png)
 A natural language interface powered by **Google Gemini** and **RAG (Retrieval-Augmented Generation)**.
 
 * **Natural Language Queries:** Allows users to ask questions like *"How many violent events occurred in Ben Nghe Ward yesterday?"*.
@@ -96,9 +96,11 @@ We developed **VioMobileNet**, a hybrid architecture optimized for edge devices.
 
 * **Optimization:** Employed "Boost & Drop" logic for non-linear post-processing to reduce false positives.
 * **Best Model (A3):**
-* **Accuracy:** ~80.4% on Test Set.
+* **Accuracy:** ~80% on Test Set.
 * **Inference Speed:** 12 FPS stable on simulated edge environment.
 * **Latency:** Average 43ms end-to-end system latency.
+![Live Command Center](assets/Screenshot 2026-01-01 192901.png)
+![Live Command Center](assets/s-blob-v1-IMAGE-1eQbadyy9IQ.png)
 
 
 
