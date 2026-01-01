@@ -1,14 +1,14 @@
-# 🛡️ Smart Security Monitoring System based on Lakehouse & AI
+# Smart Security Monitoring System based on Lakehouse & AI
 
 ### End-to-End Real-time Violence Detection & Analytics Platform
 
-## 📖 Introduction
+## Introduction
 
 This project implements an enterprise-grade **Real-time Security Monitoring System** designed to assist local authorities in maintaining public safety. Unlike traditional passive CCTV systems, this solution proactively detects violent behaviors (fighting, assaults) in real-time using Deep Learning and provides actionable insights through a modern **Data Lakehouse** architecture.
 
 The system integrates edge AI for immediate inference, a streaming data pipeline for low-latency alerts, and a Generative AI assistant (RAG) to query security events using natural language.
 
-## 🚀 Key Features
+## Key Features
 
 * **Real-time Violence Detection:** Deploys **VioMobileNet** (MobileNetV2 + Bi-LSTM) to detect violence in video streams with high accuracy (>80%).
 * **Modern Data Lakehouse:** Built on **Apache Iceberg** and **MinIO**, supporting ACID transactions, Schema Evolution, and Time Travel for forensic analysis.
@@ -20,7 +20,7 @@ The system integrates edge AI for immediate inference, a streaming data pipeline
 * **Dual-Pipeline Inference:** Innovative priority-based resource orchestration ensuring real-time latency even under heavy load.
 * **GenAI Assistant (RAG):** An AI terminal powered by **Google Gemini** and **ChromaDB** that allows users to ask questions like *"Any violent incidents in District 1 last night?"* and receive grounded answers.
 
-## 🏗️ System Architecture
+## System Architecture
 ![Live Command Center](assets/s-blob-v1-IMAGE-cRNt6fJg6S8.png)
 
 **Layer 1: Data Source**
@@ -52,7 +52,7 @@ The system integrates edge AI for immediate inference, a streaming data pipeline
 * **Visualizations:** Grafana for metrics; React for the Command Center.
 * **RAG Assistant:** Gemini API + ChromaDB for natural language security queries.
 
-## 🖥️ User Interface Showcase
+## User Interface Showcase
 
 The application is designed as a **Single Page Application (SPA)** using React.js and Tailwind CSS, focusing on a "Dark Mode" high-contrast experience for 24/7 operation centers.
 
@@ -88,7 +88,7 @@ A natural language interface powered by **Google Gemini** and **RAG (Retrieval-A
 * **Natural Language Queries:** Allows users to ask questions like *"How many violent events occurred in Ben Nghe Ward yesterday?"*.
 * **Grounded Answers:** Responses are generated solely from the Lakehouse data, with direct citations to specific event IDs to prevent hallucinations.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Big Data & Infrastructure
 
@@ -111,7 +111,7 @@ A natural language interface powered by **Google Gemini** and **RAG (Retrieval-A
 * **Monitoring:** Prometheus, Grafana
 * **Backend API:** Python Microservices
 
-## 🧠 AI Model Performance
+## AI Model Performance
 
 We developed **VioMobileNet**, a hybrid architecture optimized for edge devices.
 
@@ -126,14 +126,14 @@ We developed **VioMobileNet**, a hybrid architecture optimized for edge devices.
 
 
 
-## 💾 Data Engineering Highlights
+## Data Engineering Highlights
 
 * **ACID Compliance:** Ensures data integrity during concurrent streaming writes and analytical reads.
 * **Schema Enforcement:** Protects the Data Lake from "bad data" at the ingestion point.
 * **Time Travel:** Enables querying the state of security alerts at any specific point in the past for auditing.
 * **Optimistic Concurrency Control:** Handles multiple Spark writers without table locking.
 
-## 🔌 Installation & Setup
+## Installation & Setup
 
 **Prerequisites:** Docker Engine (v20.10+), Docker Compose (v2.x).
 
@@ -170,7 +170,7 @@ docker compose up -d --build
 
 
 
-## 👥 Contributors
+## Contributors
 
 * **Nguyen Ngoc Minh Nhat** 
 * **Nguyen Quoc Huy** 
