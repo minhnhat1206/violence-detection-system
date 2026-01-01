@@ -23,14 +23,34 @@ The system integrates edge AI for immediate inference, a streaming data pipeline
 ## 🏗️ System Architecture
 ![Live Command Center](assets/s-blob-v1-IMAGE-cRNt6fJg6S8.png)
 
-The system follows a layered microservices architecture designed for scalability and fault tolerance:
+**Layer 1: Data Source**
 
-1. **Layer 1 - Data Source:** Simulated RTSP streams from IP Cameras using the RWF-2000 dataset.
-2. **Layer 2 - Inference:** Edge processing with **MediaMTX** and **VioMobileNet**. Metadata is pushed to **Apache Kafka**.
-3. **Layer 3 - Processing:** **Apache Spark** consumes Kafka topics, enforces schema, and writes to the Lakehouse (Bronze).
-4. **Layer 4 - Storage:** **MinIO** (S3-compatible) storing Iceberg tables (Parquet format).
-5. **Layer 5 - Analytics:** **Trino** (Distributed SQL Engine) for high-speed queries and **Grafana** for monitoring.
-6. **Layer 6 - Interaction:** React Frontend and Gemini RAG Pipeline.
+* **RWF-2000 Dataset:** Source of real-world violence videos for simulation.
+* **RTSP Simulation:** Generates multi-camera streams to test system load.
+
+**Layer 2: Edge Inference**
+
+* **MediaMTX:** Low-latency RTSP server for stream management.
+* **VioMobileNet:** Hybrid MobileNetV2 + Bi-LSTM model for real-time violence detection.
+
+**Layer 3: Message Broker**
+
+* **Apache Kafka:** Buffers metadata to decouple inference from storage.
+
+**Layer 4: Lakehouse Storage**
+
+* **Apache Spark:** Handles real-time ingestion (Streaming) and ETL (Batch).
+* **Apache Iceberg:** Provides ACID transactions and schema enforcement for the Data Lake.
+
+**Layer 5: Analytics Engine**
+
+* **MinIO:** S3-compatible object storage.
+* **Trino:** Distributed SQL engine for high-speed queries on Iceberg tables.
+
+**Layer 6: Interaction & GenAI**
+
+* **Visualizations:** Grafana for metrics; React for the Command Center.
+* **RAG Assistant:** Gemini API + ChromaDB for natural language security queries.
 
 ## 🖥️ User Interface Showcase
 
@@ -100,8 +120,9 @@ We developed **VioMobileNet**, a hybrid architecture optimized for edge devices.
 * **Accuracy:** ~80% on Test Set.
 * **Inference Speed:** 12 FPS stable on simulated edge environment.
 * **Latency:** Average 43ms end-to-end system latency.
-![Live Command Center](assets/Screenshot.png)
+  
 ![Live Command Center](assets/s-blob-v1-IMAGE-9DLBn4BMkXo.png)
+![Live Command Center](assets/Screenshot.png)
 
 
 
@@ -151,6 +172,6 @@ docker compose up -d --build
 
 ## 👥 Contributors
 
-* **Nguyen Ngoc Minh Nhat** (MSSV: 22133039)
-* **Nguyen Quoc Huy** (MSSV: 22133026)
+* **Nguyen Ngoc Minh Nhat** 
+* **Nguyen Quoc Huy** 
 
