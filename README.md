@@ -21,6 +21,7 @@ The system integrates edge AI for immediate inference, a streaming data pipeline
 * **GenAI Assistant (RAG):** An AI terminal powered by **Google Gemini** and **ChromaDB** that allows users to ask questions like *"Any violent incidents in District 1 last night?"* and receive grounded answers.
 
 ## 🏗️ System Architecture
+![Live Command Center](assets/s-blob-v1-IMAGE-cRNt6fJg6S8.png)
 
 The system follows a layered microservices architecture designed for scalability and fault tolerance:
 
@@ -99,8 +100,8 @@ We developed **VioMobileNet**, a hybrid architecture optimized for edge devices.
 * **Accuracy:** ~80% on Test Set.
 * **Inference Speed:** 12 FPS stable on simulated edge environment.
 * **Latency:** Average 43ms end-to-end system latency.
-![Live Command Center](assets/Screenshot 2026-01-01 192901.png)
-![Live Command Center](assets/s-blob-v1-IMAGE-1eQbadyy9IQ.png)
+![Live Command Center](assets/Screenshot.png)
+![Live Command Center](assets/s-blob-v1-IMAGE-9DLBn4BMkXo.png)
 
 
 
