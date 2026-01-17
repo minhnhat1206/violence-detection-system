@@ -7,7 +7,7 @@ from kafka import KafkaProducer
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
-# ================= CẤU HÌNH =================
+# ================= CONFIGURATION =================
 API_URL = "http://viomobilenet_api:8000"
 KAFKA_BROKER = "kafka:9092" 
 KAFKA_TOPIC = "urban-safety-alerts"
@@ -27,12 +27,12 @@ try:
         linger_ms=10, 
         acks=1
     )
-    print(f"Ket noi Kafka thanh cong toi {KAFKA_BROKER}")
+    print(f"Connected to Kafka successfully at {KAFKA_BROKER}")
 except Exception as e:
-    print(f"Loi Fatal Kafka: {e}")
+    print(f"Fatal Kafka Error: {e}")
     sys.exit(1)
 
-# ================= HÀM XỬ LÝ =================
+# ================= PROCESSING FUNCTIONS =================
 
 def load_camera_registry(csv_path):
     registry = {}
@@ -45,10 +45,10 @@ def load_camera_registry(csv_path):
                     row['longitude'] = float(row['longitude'])
                 except: pass
                 registry[row['camera_id']] = row
-        print(f"Da load {len(registry)} camera tu CSV.")
+        print(f"Loaded {len(registry)} cameras from CSV.")
         return registry
     except Exception as e:
-        print(f"Loi doc CSV: {e}")
+        print(f"CSV Read Error: {e}")
         return {}
 
 last_sent_time = {}
@@ -57,11 +57,11 @@ def process_camera(cam_id, cam_metadata):
     global last_sent_time
     
     try:
-        # 1. Gọi API lấy trạng thái
+        # 1. Call API to get status
         try:
             resp = requests.get(f"{API_URL}/camera/status/{cam_id}", timeout=2)
         except requests.exceptions.RequestException as e:
-            # print(f"[{cam_id}] LOI KET NOI API: {e}")
+            # print(f"[{cam_id}] API CONNECTION ERROR: {e}")
             return
 
         if resp.status_code != 200:
@@ -74,18 +74,18 @@ def process_camera(cam_id, cam_metadata):
         debug_data['image_preview'] = '[REDACTED]' if debug_data.get('image_preview') else None
         print(f"[{cam_id}] RECEIVED AI DATA: {json.dumps(debug_data, indent=2)}")
         
-        # 2. Kiểm tra trạng thái offline
+        # 2. Check offline status
         if ai_data.get("status") == "offline" or ai_data.get("status") == "error":
             return
 
-        # 3. Lấy dữ liệu cốt lõi
+        # 3. Get core data
         is_violent = ai_data.get("is_violent", False)
         score = ai_data.get("score")
         if score is None:
              score = ai_data.get("fight_prob", 0.0)
         score = float(score)
 
-        # 4. Kiểm tra tần suất gửi
+        # 4. Check send frequency
         now = time.time()
         last_time = last_sent_time.get(cam_id, 0)
         interval = ALERT_INTERVAL if is_violent else HEARTBEAT_INTERVAL
@@ -120,10 +120,10 @@ def main():
     registry = load_camera_registry(METADATA_FILE)
     if not registry: return
     
-    print(f"\nProducer dang chay... Theo doi topic: {KAFKA_TOPIC}")
-    print(f"Lay du lieu tu: {API_URL}\n")
+    print(f"\nProducer is running... Monitoring topic: {KAFKA_TOPIC}")
+    print(f"Fetching data from: {API_URL}\n")
 
-    # Giới hạn số luồng phù hợp với số lượng camera
+    # Limit threads to match number of cameras
     executor = ThreadPoolExecutor(max_workers=10)
 
     try:

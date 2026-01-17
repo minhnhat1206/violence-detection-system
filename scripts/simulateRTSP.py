@@ -66,36 +66,36 @@ class CameraSimulator:
         cfg = config.get(self.risk_level.lower(), config["low"])
 
         while current < target:
-            # 1. Đoạn video AN TOÀN (Non-Violence)
-            # Thêm logic loop cho clip an toàn để tránh chuyển cảnh quá nhanh
+            # 1. SAFE video segment (Non-Violence)
+            # Add loop logic for safe clips to avoid too fast scene switching
             safe_time_target = random.randint(cfg["min_safe"], cfg["max_safe"])
             t_safe = 0
             while t_safe < safe_time_target:
                 ev = self.vm.random_event(False)
                 if not ev: break
                 
-                # Loop mỗi clip an toàn 3 lần để hình ảnh ổn định
+                # Loop each safe clip 3 times for stable image
                 for _ in range(3):
                     playlist.extend(ev)
-                    t_safe += len(ev) * 5 # Giả định mỗi clip dài 5s
+                    t_safe += len(ev) * 5 # Assume each clip is 5s long
             current += t_safe
 
-            # 2. Đoạn video BẠO LỰC (Violence)
+            # 2. VIOLENCE video segment (Violence)
             if random.random() < cfg["prob"]:
                 ev = self.vm.random_event(True)
                 if ev:
-                    # YÊU CẦU: Kéo dài 1 - 2 phút (60s - 120s)
-                    # Giả định mỗi clip gốc dài 5s -> cần 12 đến 24 lần lặp
+                    # REQUIREMENT: Lasts 1 - 2 minutes (60s - 120s)
+                    # Assume each original clip is 5s -> need 12 to 24 loops
                     loop_count = random.randint(12, 24)
                     
-                    # Thêm vào playlist
+                    # Add to playlist
                     for _ in range(loop_count):
                         playlist.extend(ev)
                     
                     actual_duration_sec = loop_count * 5
                     current += actual_duration_sec
                     
-                    print(f"[SIM] {self.cam_id}: Injected bạo lực dài {actual_duration_sec}s (~{actual_duration_sec/60:.1f} phút)")
+                    print(f"[SIM] {self.cam_id}: Injected violence lasting {actual_duration_sec}s (~{actual_duration_sec/60:.1f} minutes)")
 
         with open(self.playlist, "w") as f:
             for p in playlist:

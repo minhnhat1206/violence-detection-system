@@ -9,7 +9,7 @@ PROM_PORT = 8005
 PROCESSED = Counter("bronze_records_total", "Total bronze records")
 BATCH_DUR = Gauge("bronze_batch_duration_seconds", "Batch duration (s)")
 
-# ----- Cau hinh he thong -----
+# ----- System Config -----
 KAFKA_BROKER = "kafka:9092"
 KAFKA_TOPIC = "urban-safety-alerts"
 CATALOG = "iceberg"
@@ -18,10 +18,10 @@ BRONZE_TBL = f"{CATALOG}.{NS}.bronzeViolence"
 WAREHOUSE = "s3a://warehouse/"
 CHECKPOINT = "s3a://checkpoint/bronzeViolence/"
 
-# Giu lai nhieu snapshot hon de Trino truy van on dinh
+# Retain more snapshots for stable Trino verification
 RETAIN_SNAPSHOTS = 100 
 
-# ----- Dinh nghia Schema du lieu -----
+# ----- Data Schema Definition -----
 SCHEMA = StructType([
     StructField("camera_id", StringType()),
     StructField("city", StringType()),
@@ -41,7 +41,7 @@ SCHEMA = StructType([
     StructField("evidence_url", StringType())
 ])
 
-# ----- Khoi tao Spark Session -----
+# ----- Initialize Spark Session -----
 spark = (
     SparkSession.builder
     .appName("BronzeLayer_Streaming_CleanLog")
@@ -53,10 +53,10 @@ spark = (
     .getOrCreate()
 )
 
-# An cac log thong tin he thong khong can thiet
+# Hide unnecessary system log info
 spark.sparkContext.setLogLevel("ERROR")
 
-# Dam bao bang Iceberg ton tai
+# Ensure Iceberg table exists
 spark.sql(f"""
 CREATE TABLE IF NOT EXISTS {BRONZE_TBL} (
     camera_id string, city string, district string, ward string, street string,
@@ -68,47 +68,47 @@ CREATE TABLE IF NOT EXISTS {BRONZE_TBL} (
 """)
 
 def process_batch(batch_df, batch_id):
-    """Ham xu ly cho tung dot du lieu (Micro-batch)"""
+    """Processing function for each data batch (Micro-batch)"""
     start_time = time.time()
     try:
         record_count = batch_df.count()
         
         separator = "-" * 50
         print(separator)
-        print(f"BATCH {batch_id} | Du lieu nhan: {record_count} ban ghi")
+        print(f"BATCH {batch_id} | Data received: {record_count} records")
         
         if record_count > 0:
-            # Ghi du lieu vao tang Bronze
+            # Write data to Bronze layer
             batch_df.withColumn("event_time", to_timestamp(col("timestamp"))) \
                     .withColumn("event_date", to_date(col("timestamp"))) \
                     .withColumn("ingest_time", current_timestamp()) \
                     .drop("timestamp") \
                     .writeTo(BRONZE_TBL).append()
 
-            # Bao tri Metadata: Giu lai lich su snapshots
+            # Metadata Maintenance: Retain snapshot history
             if batch_id % 5 == 0:
-                print(f"Bao tri Metadata: Expire Snapshots (retain={RETAIN_SNAPSHOTS})")
+                print(f"Metadata Maintenance: Expire Snapshots (retain={RETAIN_SNAPSHOTS})")
                 spark.sql(f"CALL {CATALOG}.system.expire_snapshots(table => '{BRONZE_TBL}', retain_last => {RETAIN_SNAPSHOTS})")
 
             PROCESSED.inc(record_count)
             duration = time.time() - start_time
             BATCH_DUR.set(duration)
-            print(f"Hoan tat Batch {batch_id} trong {duration:.2f}s")
+            print(f"Finished Batch {batch_id} in {duration:.2f}s")
         else:
-            print("Dang doi du lieu moi tu Kafka...")
+            print("Waiting for new data from Kafka...")
             
         print(separator)
 
     except Exception as e:
-        print(f"LOI TAI BATCH {batch_id}: {e}")
+        print(f"ERROR AT BATCH {batch_id}: {e}")
         traceback.print_exc()
 
-# Chay Prometheus Metrics Server
+# Run Prometheus Metrics Server
 def _start_metrics():
     start_http_server(PROM_PORT)
 threading.Thread(target=_start_metrics, daemon=True).start()
 
-# Cau hinh doc Kafka Stream
+# Configure Kafka Stream Reading
 kafka_df = (
     spark.readStream.format("kafka")
     .option("kafka.bootstrap.servers", KAFKA_BROKER)
@@ -123,8 +123,8 @@ parsed = (kafka_df
     .select("d.*")
 )
 
-# Khoi chay luong Streaming
-print(f"Bronze Stream dang khoi dong. Topic: {KAFKA_TOPIC}")
+# Start Streaming thread
+print(f"Bronze Stream is starting. Topic: {KAFKA_TOPIC}")
 query = (parsed.writeStream
     .foreachBatch(process_batch)
     .option("checkpointLocation", CHECKPOINT)

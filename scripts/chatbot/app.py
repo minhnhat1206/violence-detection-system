@@ -18,15 +18,15 @@ CORS(app)
 rag = RAGStore(CHROMA_DIR)
 
 def extract_filters(question: str):
-    """Hàm bổ trợ trích xuất metadata từ câu hỏi để thực hiện Hybrid Search"""
+    """Helper function to extract metadata from question for Hybrid Search"""
     filters = {}
     
-    # 1. Trích xuất camera_id (ví dụ: cam01, cam02...)
+    # 1. Extract camera_id (e.g., cam01, cam02...)
     cam_match = re.search(r'cam\d+', question.lower())
     if cam_match:
         filters["camera_id"] = cam_match.group()
         
-    # 2. Trích xuất ngày tháng (định dạng YYYY-MM-DD)
+    # 2. Extract date (format YYYY-MM-DD)
     date_match = re.search(r'\d{4}-\d{2}-\d{2}', question)
     if date_match:
         filters["date"] = date_match.group()
@@ -34,10 +34,10 @@ def extract_filters(question: str):
     return filters if filters else None
 
 def init_data_incremental():
-    """Khởi động: Chỉ nạp những sự kiện mới từ MinIO chưa có trong database"""
+    """Startup: Only ingest new events from MinIO not yet in database"""
     print("[app] Checking for new data in MinIO...")
     try:
-        # Lấy danh sách event_id đã tồn tại để tránh trùng lặp
+        # Get list of existing event_ids to avoid duplication
         current_data = rag.collection.get(include=['metadatas'])
         existing_ids = set()
         if current_data and current_data['metadatas']:
@@ -45,7 +45,7 @@ def init_data_incremental():
         
         print(f"[app] Found {len(existing_ids)} events already in database.")
 
-        # Chỉ Ingest những dữ liệu chưa có
+        # Ingest only missing data
         new_docs = run_ingest(existing_ids=existing_ids)
         
         if new_docs:
@@ -59,10 +59,10 @@ def init_data_incremental():
         print("[app] ERROR during startup ingest:", e)
         traceback.print_exc()
 
-# Thực hiện nạp dữ liệu ngay khi khởi chạy Server
+# Perform data ingestion immediately upon Server startup
 init_data_incremental()
 
-# Cấu hình Gemini Client
+# Configure Gemini Client
 model = None
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
@@ -128,5 +128,5 @@ def chat():
 
 
 if __name__ == "__main__":
-    # Server chạy trên cổng 5002 như cấu hình Docker
+    # Server runs on port 5002 as configured in Docker
     app.run(host="0.0.0.0", port=5002, debug=False)

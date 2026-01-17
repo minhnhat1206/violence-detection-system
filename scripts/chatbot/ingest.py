@@ -16,7 +16,7 @@ def connect_minio():
     )
 
 def list_parquet_objects(client: Minio, bucket: str, prefix: str):
-    # Thêm in log để debug chính xác Prefix đang quét
+    # Add log to debug the specific Prefix being scanned
     print(f"[ingest] Scanning bucket: {bucket} with prefix: {prefix}")
     
     objects = client.list_objects(
@@ -27,8 +27,8 @@ def list_parquet_objects(client: Minio, bucket: str, prefix: str):
     
     parquet_files = []
     for o in objects:
-        # Kiểm tra nếu tên đối tượng chứa đuôi .parquet 
-        # (Xử lý trường hợp lồng thư mục như trong ảnh của bạn)
+        # Check if object name contains .parquet extension 
+        # (Handle nested directory cases)
         if ".parquet" in o.object_name and not o.is_dir:
             parquet_files.append(o.object_name)
             
@@ -41,12 +41,12 @@ def read_parquet_df(client: Minio, bucket: str, key: str) -> pd.DataFrame:
     return table.to_pandas()
 
 def build_text_row(row: pd.Series) -> str:
-    """BƯỚC 1: Tối ưu hóa Text Builder sang ngôn ngữ tự nhiên"""
+    """STEP 1: Optimize Text Builder to natural language"""
     event_id = row.get('event_id', 'không rõ ID')
     cam_id = row.get('camera_id', 'không rõ vị trí')
     time_str = row.get('timestamp_utc', 'không rõ thời gian')
     
-    # Chuẩn hóa nhãn hiển thị
+    # Normalize display label
     raw_label = str(row.get('label', '')).upper()
     label = "BẠO LỰC" if raw_label == "VIOLENCE" else "bình thường"
     
@@ -80,7 +80,7 @@ def dataframe_to_docs(df: pd.DataFrame):
     return docs
 
 def run_ingest(existing_ids=None):
-    """BƯỚC 2: Hỗ trợ Incremental Ingest (chỉ nạp dữ liệu chưa tồn tại)"""
+    """STEP 2: Support Incremental Ingest (load only non-existent data)"""
     bucket = os.getenv("ICEBERG_BUCKET")
     prefix = os.getenv("ICEBERG_PREFIX")
     if not bucket or not prefix:
@@ -96,7 +96,7 @@ def run_ingest(existing_ids=None):
         try:
             df = read_parquet_df(client, bucket, k)
             
-            # Lọc bỏ các bản ghi đã có trong ChromaDB dựa trên event_id
+            # Filter out records already in ChromaDB based on event_id
             if not df.empty and existing_ids:
                 df = df[~df['event_id'].astype(str).isin(existing_ids)]
             

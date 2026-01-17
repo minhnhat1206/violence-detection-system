@@ -3,7 +3,7 @@ import random
 import csv
 from pathlib import Path
 
-# ====== CẤU HÌNH ĐỊA LÝ (Quận 1, TP. Hồ Chí Minh) ======
+# ====== GEOGRAPHIC CONFIG (District 1, Ho Chi Minh City) ======
 CITY = "TP. Hồ Chí Minh"
 DISTRICT = "Quận 1"
 WARDS = [
@@ -20,23 +20,23 @@ STREETS = [
     "Đường Võ Văn Kiệt", "Đường Nguyễn Công Trứ", "Đường Công Trường Mê Linh",
     "Đường Hàm Nghi", "Đường Nguyễn Bỉnh Khiêm", "Đường Trương Định"
 ]
-# Phạm vi: Vĩ độ ~ 10.77 đến 10.78; Kinh độ ~ 106.69 đến 106.71
-# Dùng Seed để đảm bảo tọa độ không đổi giữa các lần chạy
+# Range: Latitude ~ 10.77 to 10.78; Longitude ~ 106.69 to 106.71
+# Use Seed to ensure consistent coordinates between runs
 random.seed(42) 
 LAT_BASE = [round(random.uniform(10.770, 10.785), 5) for _ in range(32)]
 LON_BASE = [round(random.uniform(106.690, 106.710), 5) for _ in range(32)]
 
-# Phân bổ mức độ rủi ro
+# Risk level distribution
 RISK_LEVELS = ['high'] * 4 + ['medium'] * 8 + ['low'] * 4 # 4+8+4 = 16 camera
 
 def generate_and_save_metadata(n_cameras: int, rtsp_base: str, metadata_file: Path):
     """
-    Tạo metadata địa lý cho các camera và ghi ra file CSV.
+    Generate geographic metadata for cameras and write to CSV file.
     """
     metadata_file.parent.mkdir(parents=True, exist_ok=True)
     metadata_rows = []
     
-    # Đảm bảo RISK_LEVELS bao phủ đủ số lượng camera
+    # Ensure RISK_LEVELS covers enough cameras
     risk_list = (RISK_LEVELS * (n_cameras // len(RISK_LEVELS) + 1))[:n_cameras]
     
     for i in range(n_cameras):
@@ -54,7 +54,7 @@ def generate_and_save_metadata(n_cameras: int, rtsp_base: str, metadata_file: Pa
             "latitude": LAT_BASE[i], 
             "longitude": LON_BASE[i],
             "rtsp_url": f"{rtsp_base}/{cam_id}",
-            "risk_level": risk # Thêm thông tin mức độ rủi ro
+            "risk_level": risk # Add risk level info
         })
 
     fieldnames = [
@@ -67,15 +67,15 @@ def generate_and_save_metadata(n_cameras: int, rtsp_base: str, metadata_file: Pa
         writer.writeheader()
         writer.writerows(metadata_rows)
         
-    print(f" Đã tạo metadata cho {len(metadata_rows)} camera và ghi vào: {metadata_file.resolve()}")
+    print(f" Generated metadata for {len(metadata_rows)} cameras and wrote to: {metadata_file.resolve()}")
     
     return metadata_rows
 
 def load_camera_registry(metadata_file: Path):
-    """Đọc file CSV camera_registry và trả về dictionary."""
+    """Read camera_registry CSV file and return dictionary."""
     registry = {}
     if not metadata_file.exists():
-        print(f"LỖI: Không tìm thấy file metadata tại {metadata_file.resolve()}")
+        print(f"ERROR: Metadata file not found at {metadata_file.resolve()}")
         return registry
         
     with open(metadata_file, mode='r', encoding='utf-8') as f:
@@ -85,5 +85,5 @@ def load_camera_registry(metadata_file: Path):
     return registry
 
 if __name__ == '__main__':
-    # Chỉ chạy thử nghiệm
+    # Test run only
     generate_and_save_metadata(16, "rtsp://mediamtx:8554", Path("../data/metadata/camera_registry.csv"))
