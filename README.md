@@ -1,14 +1,14 @@
-# 🛡️ Smart Security Monitoring System based on Lakehouse & AI
+# Smart Security Monitoring System based on Lakehouse & AI
 
 ### End-to-End Real-time Violence Detection & Analytics Platform
 
-## 📖 Introduction
+## Introduction
 
 This project implements an enterprise-grade **Real-time Security Monitoring System** designed to assist local authorities in maintaining public safety. Unlike traditional passive CCTV systems, this solution proactively detects violent behaviors (fighting, assaults) in real-time using Deep Learning and provides actionable insights through a modern **Data Lakehouse** architecture.
 
 The system integrates edge AI for immediate inference, a streaming data pipeline for low-latency alerts, and a Generative AI assistant (RAG) to query security events using natural language.
 
-## 🚀 Key Features
+## Key Features
 
 * **Real-time Violence Detection:** Deploys **VioMobileNet** (MobileNetV2 + Bi-LSTM) to detect violence in video streams with high accuracy (>80%).
 * **Modern Data Lakehouse:** Built on **Apache Iceberg** and **MinIO**, supporting ACID transactions, Schema Evolution, and Time Travel for forensic analysis.
@@ -20,18 +20,39 @@ The system integrates edge AI for immediate inference, a streaming data pipeline
 * **Dual-Pipeline Inference:** Innovative priority-based resource orchestration ensuring real-time latency even under heavy load.
 * **GenAI Assistant (RAG):** An AI terminal powered by **Google Gemini** and **ChromaDB** that allows users to ask questions like *"Any violent incidents in District 1 last night?"* and receive grounded answers.
 
-## 🏗️ System Architecture
+## System Architecture
+![Live Command Center](assets/s-blob-v1-IMAGE-cRNt6fJg6S8.png)
 
-The system follows a layered microservices architecture designed for scalability and fault tolerance:
+**Layer 1: Data Source**
 
-1. **Layer 1 - Data Source:** Simulated RTSP streams from IP Cameras using the RWF-2000 dataset.
-2. **Layer 2 - Inference:** Edge processing with **MediaMTX** and **VioMobileNet**. Metadata is pushed to **Apache Kafka**.
-3. **Layer 3 - Processing:** **Apache Spark** consumes Kafka topics, enforces schema, and writes to the Lakehouse (Bronze).
-4. **Layer 4 - Storage:** **MinIO** (S3-compatible) storing Iceberg tables (Parquet format).
-5. **Layer 5 - Analytics:** **Trino** (Distributed SQL Engine) for high-speed queries and **Grafana** for monitoring.
-6. **Layer 6 - Interaction:** React Frontend and Gemini RAG Pipeline.
+* **RWF-2000 Dataset:** Source of real-world violence videos for simulation.
+* **RTSP Simulation:** Generates multi-camera streams to test system load.
 
-## 🖥️ User Interface Showcase
+**Layer 2: Edge Inference**
+
+* **MediaMTX:** Low-latency RTSP server for stream management.
+* **VioMobileNet:** Hybrid MobileNetV2 + Bi-LSTM model for real-time violence detection.
+
+**Layer 3: Message Broker**
+
+* **Apache Kafka:** Buffers metadata to decouple inference from storage.
+
+**Layer 4: Lakehouse Storage**
+
+* **Apache Spark:** Handles real-time ingestion (Streaming) and ETL (Batch).
+* **Apache Iceberg:** Provides ACID transactions and schema enforcement for the Data Lake.
+
+**Layer 5: Analytics Engine**
+
+* **MinIO:** S3-compatible object storage.
+* **Trino:** Distributed SQL engine for high-speed queries on Iceberg tables.
+
+**Layer 6: Interaction & GenAI**
+
+* **Visualizations:** Grafana for metrics; React for the Command Center.
+* **RAG Assistant:** Gemini API + ChromaDB for natural language security queries.
+
+## User Interface Showcase
 
 The application is designed as a **Single Page Application (SPA)** using React.js and Tailwind CSS, focusing on a "Dark Mode" high-contrast experience for 24/7 operation centers.
 
@@ -67,7 +88,7 @@ A natural language interface powered by **Google Gemini** and **RAG (Retrieval-A
 * **Natural Language Queries:** Allows users to ask questions like *"How many violent events occurred in Ben Nghe Ward yesterday?"*.
 * **Grounded Answers:** Responses are generated solely from the Lakehouse data, with direct citations to specific event IDs to prevent hallucinations.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Big Data & Infrastructure
 
@@ -90,7 +111,7 @@ A natural language interface powered by **Google Gemini** and **RAG (Retrieval-A
 * **Monitoring:** Prometheus, Grafana
 * **Backend API:** Python Microservices
 
-## 🧠 AI Model Performance
+## AI Model Performance
 
 We developed **VioMobileNet**, a hybrid architecture optimized for edge devices.
 
@@ -99,19 +120,20 @@ We developed **VioMobileNet**, a hybrid architecture optimized for edge devices.
 * **Accuracy:** ~80% on Test Set.
 * **Inference Speed:** 12 FPS stable on simulated edge environment.
 * **Latency:** Average 43ms end-to-end system latency.
-![Live Command Center](assets/Screenshot 2026-01-01 192901.png)
-![Live Command Center](assets/s-blob-v1-IMAGE-1eQbadyy9IQ.png)
+  
+![Live Command Center](assets/s-blob-v1-IMAGE-9DLBn4BMkXo.png)
+![Live Command Center](assets/Screenshot.png)
 
 
 
-## 💾 Data Engineering Highlights
+## Data Engineering Highlights
 
 * **ACID Compliance:** Ensures data integrity during concurrent streaming writes and analytical reads.
 * **Schema Enforcement:** Protects the Data Lake from "bad data" at the ingestion point.
 * **Time Travel:** Enables querying the state of security alerts at any specific point in the past for auditing.
 * **Optimistic Concurrency Control:** Handles multiple Spark writers without table locking.
 
-## 🔌 Installation & Setup
+## Installation & Setup
 
 **Prerequisites:** Docker Engine (v20.10+), Docker Compose (v2.x).
 
@@ -148,8 +170,8 @@ docker compose up -d --build
 
 
 
-## 👥 Contributors
+## Contributors
 
-* **Nguyen Ngoc Minh Nhat** (MSSV: 22133039)
-* **Nguyen Quoc Huy** (MSSV: 22133026)
+* **Nguyen Ngoc Minh Nhat** 
+* **Nguyen Quoc Huy** 
 
